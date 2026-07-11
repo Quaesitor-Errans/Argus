@@ -1,7 +1,8 @@
 import typer
 
-from argus.services.article_pipeline import run_article_pipeline
+from argus.services.collection_service import collect_articles
 from argus.services.discourse_pipeline import run_discourse_pipeline
+from argus.services.parsing_service import parse_articles
 
 app = typer.Typer(
     name="argus",
@@ -11,16 +12,23 @@ app = typer.Typer(
 
 
 @app.command()
-def collect(
-        parse_limit: int = typer.Option(
+def collect() -> None:
+    """Collect new article metadata from configured sources."""
+
+    collect_articles()
+
+
+@app.command()
+def parse(
+        limit: int = typer.Option(
             20,
             min=1,
             help="Maximum number of article bodies to extract.",
         ),
 ) -> None:
-    """Collect RSS entries and extract pending article content."""
+    """Extract full text for stored articles."""
 
-    run_article_pipeline(parse_limit=parse_limit)
+    parse_articles(limit=limit)
 
 
 @app.command()
@@ -41,9 +49,10 @@ def run(
         parse_limit: int = typer.Option(20, min=1),
         analysis_limit: int = typer.Option(20, min=1),
 ) -> None:
-    """Run the complete Argus pipeline."""
+    """Run collection, parsing and discourse analysis."""
 
-    run_article_pipeline(parse_limit=parse_limit)
+    collect_articles()
+    parse_articles(limit=parse_limit)
     run_discourse_pipeline(limit=analysis_limit)
 
 
