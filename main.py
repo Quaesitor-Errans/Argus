@@ -1,11 +1,5 @@
-from argus.services.discourse_pipeline import (
-    run_discourse_pipeline,
-)
-
-
-def main() -> None:
-    run_discourse_pipeline(limit=10)
+from argus.interface.cli import app
 
 
 if __name__ == "__main__":
-    main()
+    app()
