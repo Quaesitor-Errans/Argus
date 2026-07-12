@@ -1,4 +1,4 @@
-from argus.database import SessionLocal, create_database
+from argus.database import create_database, session_manager
 from argus.logging.logger import get_logger
 from argus.parsers.article_parser import extract_article_text
 from argus.services.processing import (
@@ -20,14 +20,13 @@ def parse_articles(
 ) -> None:
     create_database()
 
-    session = SessionLocal()
-    article_repository = ArticleRepository(session)
-    state_repository = ProcessingStateRepository(session)
-
     parsed_count = 0
     failed_count = 0
 
-    try:
+    with session_manager.session() as session:
+        article_repository = ArticleRepository(session)
+        state_repository = ProcessingStateRepository(session)
+
         articles = article_repository.get_pending_parsing(
             limit=limit,
             retry_failed=retry_failed,
@@ -100,9 +99,6 @@ def parse_articles(
                     article.id,
                     article.url,
                 )
-
-    finally:
-        session.close()
 
     logger.info(
         "Parsing finished; parsed=%s; failed=%s",

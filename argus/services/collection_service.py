@@ -1,6 +1,6 @@
 from argus.collector.rss_adapter import fetch_rss_entries
 from argus.config import RSS_FEEDS
-from argus.database import SessionLocal, create_database
+from argus.database import create_database, session_manager
 from argus.logging.logger import get_logger
 from argus.models import Article
 from argus.storage.article_repository import ArticleRepository
@@ -12,13 +12,12 @@ logger = get_logger(__name__)
 def collect_articles() -> None:
     create_database()
 
-    session = SessionLocal()
-    repository = ArticleRepository(session)
-
     new_articles_count = 0
     failed_feeds_count = 0
 
-    try:
+    with session_manager.session() as session:
+        repository = ArticleRepository(session)
+
         for feed in RSS_FEEDS:
             feed_name = feed["name"]
 
@@ -73,9 +72,6 @@ def collect_articles() -> None:
                 feed_name,
                 collected_from_feed,
             )
-
-    finally:
-        session.close()
 
     logger.info(
         "Collection finished; new articles: %s; failed feeds: %s",

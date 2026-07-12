@@ -1,5 +1,5 @@
 from argus.analysis.discourse_analyzer import DiscourseAnalyzer
-from argus.database import SessionLocal, create_database
+from argus.database import create_database, session_manager
 from argus.logging.logger import get_logger
 from argus.services.processing import (
     DISCOURSE_METHOD_VERSION,
@@ -23,19 +23,18 @@ def run_discourse_pipeline(
     create_database()
 
     analyzer = DiscourseAnalyzer()
-    session = SessionLocal()
-
-    analysis_repository = DiscourseAnalysisRepository(
-        session
-    )
-    state_repository = ProcessingStateRepository(
-        session
-    )
 
     analyzed_count = 0
     failed_count = 0
 
-    try:
+    with session_manager.session() as session:
+        analysis_repository = DiscourseAnalysisRepository(
+            session
+        )
+        state_repository = ProcessingStateRepository(
+            session
+        )
+
         articles = (
             analysis_repository.get_pending_articles(
                 method_version=DISCOURSE_METHOD_VERSION,
@@ -117,9 +116,6 @@ def run_discourse_pipeline(
                     "Discourse analysis failed: article_id=%s",
                     article.id,
                 )
-
-    finally:
-        session.close()
 
     logger.info(
         (
