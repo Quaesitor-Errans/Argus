@@ -8,28 +8,44 @@ from argus.models import (
     AnalysisEvidence,
     Article,
     DiscourseAnalysisResult,
+    ProcessingState,
 )
+from argus.services.processing import DISCOURSE_STAGE
 
 
 class DiscourseAnalysisRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def get_articles_without_analysis(
+    def get_pending_articles(
             self,
             method_version: str,
             limit: int = 20,
+            retry_failed: bool = False,
     ) -> list[Article]:
+        blocked_statuses = ["running", "done"]
+
+        if not retry_failed:
+            blocked_statuses.append("failed")
+
         analysis_exists = exists().where(
             DiscourseAnalysisResult.article_id == Article.id,
             DiscourseAnalysisResult.method_version == method_version,
-            )
+        )
+
+        processing_state_exists = exists().where(
+            ProcessingState.article_id == Article.id,
+            ProcessingState.stage == DISCOURSE_STAGE,
+            ProcessingState.method_version == method_version,
+            ProcessingState.status.in_(blocked_statuses),
+        )
 
         statement = (
             select(Article)
             .where(Article.content.is_not(None))
             .where(Article.content != "")
             .where(~analysis_exists)
+            .where(~processing_state_exists)
             .order_by(Article.fetched_at.asc())
             .limit(limit)
         )

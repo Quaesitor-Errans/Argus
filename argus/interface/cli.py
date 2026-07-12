@@ -46,10 +46,18 @@ def analyze(
             min=1,
             help="Maximum number of articles to analyze.",
         ),
+        retry_failed: bool = typer.Option(
+            False,
+            "--retry-failed",
+            help="Retry articles whose previous analysis attempt failed.",
+        ),
 ) -> None:
     """Run discourse analysis on stored articles."""
 
-    run_discourse_pipeline(limit=limit)
+    run_discourse_pipeline(
+        limit=limit,
+        retry_failed=retry_failed,
+    )
 
 
 @app.command()
@@ -67,7 +75,7 @@ def run(
         retry_failed: bool = typer.Option(
             False,
             "--retry-failed",
-            help="Retry articles whose previous parsing attempt failed.",
+            help="Retry failed parsing and analysis operations.",
         ),
 ) -> None:
     """Run collection, parsing and discourse analysis."""
@@ -81,6 +89,7 @@ def run(
 
     run_discourse_pipeline(
         limit=analysis_limit,
+        retry_failed=retry_failed,
     )
 
 
