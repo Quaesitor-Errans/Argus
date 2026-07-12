@@ -1,8 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from argus.models import Article
-
 from sqlalchemy import exists
 
 from argus.models import Article, ProcessingState

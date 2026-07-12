@@ -1,4 +1,5 @@
 from argus.database import SessionLocal, create_database
+from argus.logging.logger import get_logger
 from argus.parsers.article_parser import extract_article_text
 from argus.services.processing import (
     PARSING_METHOD_VERSION,
@@ -8,6 +9,9 @@ from argus.storage.article_repository import ArticleRepository
 from argus.storage.processing_repository import (
     ProcessingStateRepository,
 )
+
+
+logger = get_logger(__name__)
 
 
 def parse_articles(
@@ -30,7 +34,9 @@ def parse_articles(
         )
 
         if not articles:
-            print("No articles require parsing.")
+            logger.info(
+                "No articles require parsing."
+            )
             return
 
         for article in articles:
@@ -40,23 +46,37 @@ def parse_articles(
                 method_version=PARSING_METHOD_VERSION,
             )
 
-            print(f"\nExtracting: {article.title}")
+            logger.info(
+                "Parsing article %s: %s",
+                article.id,
+                article.title,
+            )
+
             state_repository.mark_running(state)
 
             try:
-                content = extract_article_text(article.url)
+                content = extract_article_text(
+                    article.url
+                )
 
                 if not content:
                     raise RuntimeError(
                         "Article parser returned no content."
                     )
 
-                article_repository.update_content(article, content)
+                article_repository.update_content(
+                    article,
+                    content,
+                )
+
                 state_repository.mark_done(state)
 
                 parsed_count += 1
-                print(
-                    f"Saved content: {len(content)} characters"
+
+                logger.info(
+                    "Article parsed: id=%s; characters=%s",
+                    article.id,
+                    len(content),
                 )
 
             except Exception as error:
@@ -67,17 +87,25 @@ def parse_articles(
                     stage=PARSING_STAGE,
                     method_version=PARSING_METHOD_VERSION,
                 )
+
                 state_repository.mark_failed(
                     state,
                     error=str(error),
                 )
 
                 failed_count += 1
-                print(f"Failed: {error}")
+
+                logger.exception(
+                    "Article parsing failed: id=%s; url=%s",
+                    article.id,
+                    article.url,
+                )
 
     finally:
         session.close()
 
-    print("\nParsing finished.")
-    print(f"Parsed: {parsed_count}")
-    print(f"Failed: {failed_count}")
+    logger.info(
+        "Parsing finished; parsed=%s; failed=%s",
+        parsed_count,
+        failed_count,
+    )
