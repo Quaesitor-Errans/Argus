@@ -25,10 +25,18 @@ def parse(
             min=1,
             help="Maximum number of article bodies to extract.",
         ),
+        retry_failed: bool = typer.Option(
+            False,
+            "--retry-failed",
+            help="Retry articles whose previous parsing attempt failed.",
+        ),
 ) -> None:
     """Extract full text for stored articles."""
 
-    parse_articles(limit=limit)
+    parse_articles(
+        limit=limit,
+        retry_failed=retry_failed,
+    )
 
 
 @app.command()
@@ -46,14 +54,34 @@ def analyze(
 
 @app.command()
 def run(
-        parse_limit: int = typer.Option(20, min=1),
-        analysis_limit: int = typer.Option(20, min=1),
+        parse_limit: int = typer.Option(
+            20,
+            min=1,
+            help="Maximum number of article bodies to extract.",
+        ),
+        analysis_limit: int = typer.Option(
+            20,
+            min=1,
+            help="Maximum number of articles to analyze.",
+        ),
+        retry_failed: bool = typer.Option(
+            False,
+            "--retry-failed",
+            help="Retry articles whose previous parsing attempt failed.",
+        ),
 ) -> None:
     """Run collection, parsing and discourse analysis."""
 
     collect_articles()
-    parse_articles(limit=parse_limit)
-    run_discourse_pipeline(limit=analysis_limit)
+
+    parse_articles(
+        limit=parse_limit,
+        retry_failed=retry_failed,
+    )
+
+    run_discourse_pipeline(
+        limit=analysis_limit,
+    )
 
 
 if __name__ == "__main__":

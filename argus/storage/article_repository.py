@@ -3,6 +3,15 @@ from sqlalchemy.orm import Session
 
 from argus.models import Article
 
+from sqlalchemy import exists
+
+from argus.models import Article, ProcessingState
+from argus.services.processing import (
+    FAILED,
+    PARSING_METHOD_VERSION,
+    PARSING_STAGE,
+)
+
 
 class ArticleRepository:
     def __init__(self, session: Session):
@@ -45,11 +54,28 @@ class ArticleRepository:
         self.session.refresh(article)
         return article
 
-    def get_without_content(self, limit: int = 20) -> list[Article]:
+    def get_pending_parsing(
+            self,
+            limit: int = 20,
+            retry_failed: bool = False,
+    ) -> list[Article]:
+        blocked_statuses = ["running", "done"]
+
+        if not retry_failed:
+            blocked_statuses.append("failed")
+
+        blocking_state_exists = exists().where(
+            ProcessingState.article_id == Article.id,
+            ProcessingState.stage == PARSING_STAGE,
+            ProcessingState.method_version == PARSING_METHOD_VERSION,
+            ProcessingState.status.in_(blocked_statuses),
+            )
+
         return (
             self.session
             .query(Article)
             .filter(Article.content.is_(None))
+            .filter(~blocking_state_exists)
             .order_by(Article.fetched_at.asc())
             .limit(limit)
             .all()

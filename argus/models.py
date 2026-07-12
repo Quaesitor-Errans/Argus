@@ -36,6 +36,72 @@ class Article(Base):
     content_hash: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
 
+class ProcessingState(Base):
+    __tablename__ = "processing_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "article_id",
+            "stage",
+            "method_version",
+            name="uq_processing_article_stage_method",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    article_id: Mapped[int] = mapped_column(
+        ForeignKey("articles.id"),
+        nullable=False,
+        index=True,
+    )
+
+    stage: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+
+    method_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="default",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        index=True,
+    )
+
+    attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    last_error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class DiscourseAnalysisResult(Base):
     __tablename__ = "discourse_analysis_results"
     __table_args__ = (
