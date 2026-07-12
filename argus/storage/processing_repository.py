@@ -4,12 +4,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from argus.models import ProcessingState
-from argus.services.processing import DONE, FAILED, PENDING, RUNNING
+from argus.services.processing import (
+    DONE,
+    FAILED,
+    PENDING,
+    RUNNING,
+)
+from argus.storage.base_repository import BaseRepository
 
 
-class ProcessingStateRepository:
+class ProcessingStateRepository(
+    BaseRepository[ProcessingState]
+):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        super().__init__(
+            session=session,
+            model_type=ProcessingState,
+        )
 
     def get(
             self,
@@ -20,7 +31,9 @@ class ProcessingStateRepository:
         statement = select(ProcessingState).where(
             ProcessingState.article_id == article_id,
             ProcessingState.stage == stage,
-            ProcessingState.method_version == method_version,
+            ProcessingState.method_version == (
+                method_version
+            ),
             )
 
         return self.session.scalar(statement)
@@ -47,23 +60,31 @@ class ProcessingStateRepository:
             status=PENDING,
         )
 
-        self.session.add(state)
+        self.add(state)
         self.session.commit()
-        self.session.refresh(state)
+        self.refresh(state)
 
         return state
 
-    def mark_running(self, state: ProcessingState) -> None:
+    def mark_running(
+            self,
+            state: ProcessingState,
+    ) -> None:
         state.status = RUNNING
         state.attempts += 1
         state.last_error = None
         state.updated_at = datetime.now(timezone.utc)
+
         self.session.commit()
 
-    def mark_done(self, state: ProcessingState) -> None:
+    def mark_done(
+            self,
+            state: ProcessingState,
+    ) -> None:
         state.status = DONE
         state.last_error = None
         state.updated_at = datetime.now(timezone.utc)
+
         self.session.commit()
 
     def mark_failed(
@@ -74,4 +95,5 @@ class ProcessingStateRepository:
         state.status = FAILED
         state.last_error = error[:4000]
         state.updated_at = datetime.now(timezone.utc)
+
         self.session.commit()

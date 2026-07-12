@@ -11,11 +11,17 @@ from argus.models import (
     ProcessingState,
 )
 from argus.services.processing import DISCOURSE_STAGE
+from argus.storage.base_repository import BaseRepository
 
 
-class DiscourseAnalysisRepository:
+class DiscourseAnalysisRepository(
+    BaseRepository[DiscourseAnalysisResult]
+):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        super().__init__(
+            session=session,
+            model_type=DiscourseAnalysisResult,
+        )
 
     def get_pending_articles(
             self,
@@ -23,22 +29,33 @@ class DiscourseAnalysisRepository:
             limit: int = 20,
             retry_failed: bool = False,
     ) -> list[Article]:
-        blocked_statuses = ["running", "done"]
+        blocked_statuses = [
+            "running",
+            "done",
+        ]
 
         if not retry_failed:
             blocked_statuses.append("failed")
 
         analysis_exists = exists().where(
-            DiscourseAnalysisResult.article_id == Article.id,
-            DiscourseAnalysisResult.method_version == method_version,
-        )
+            DiscourseAnalysisResult.article_id == (
+                Article.id
+            ),
+            DiscourseAnalysisResult.method_version == (
+                method_version
+            ),
+            )
 
         processing_state_exists = exists().where(
             ProcessingState.article_id == Article.id,
             ProcessingState.stage == DISCOURSE_STAGE,
-            ProcessingState.method_version == method_version,
-            ProcessingState.status.in_(blocked_statuses),
-        )
+            ProcessingState.method_version == (
+                method_version
+            ),
+            ProcessingState.status.in_(
+                blocked_statuses
+            ),
+            )
 
         statement = (
             select(Article)
@@ -65,7 +82,9 @@ class DiscourseAnalysisRepository:
             method_version=method_version,
             word_count=metrics.word_count,
             sentence_count=metrics.sentence_count,
-            average_sentence_length=metrics.average_sentence_length,
+            average_sentence_length=(
+                metrics.average_sentence_length
+            ),
             question_count=metrics.question_count,
             exclamation_count=metrics.exclamation_count,
             first_person_plural_count=(
@@ -80,12 +99,16 @@ class DiscourseAnalysisRepository:
             uncertainty_marker_count=(
                 metrics.uncertainty_marker_count
             ),
-            fear_marker_count=metrics.fear_marker_count,
-            threat_marker_count=metrics.threat_marker_count,
+            fear_marker_count=(
+                metrics.fear_marker_count
+            ),
+            threat_marker_count=(
+                metrics.threat_marker_count
+            ),
         )
 
-        self.session.add(result)
-        self.session.flush()
+        self.add(result)
+        self.flush()
 
         evidence_rows = [
             AnalysisEvidence(
@@ -102,6 +125,6 @@ class DiscourseAnalysisRepository:
 
         self.session.add_all(evidence_rows)
         self.session.commit()
-        self.session.refresh(result)
+        self.refresh(result)
 
         return result
