@@ -3,9 +3,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from argus.models import Article, ProcessingState
-from argus.services.processing import (
+from argus.processing import (
     PARSING_METHOD_VERSION,
-    PARSING_STAGE,
+    ProcessingStage,
+    ProcessingStatus,
 )
 from argus.storage.base_repository import BaseRepository
 
@@ -82,17 +83,21 @@ class ArticleRepository(BaseRepository[Article]):
             limit: int = 20,
             retry_failed: bool = False,
     ) -> list[Article]:
-        blocked_statuses = [
-            "running",
-            "done",
+        blocked_statuses: list[ProcessingStatus] = [
+            ProcessingStatus.RUNNING,
+            ProcessingStatus.DONE,
         ]
 
         if not retry_failed:
-            blocked_statuses.append("failed")
+            blocked_statuses.append(
+                ProcessingStatus.FAILED
+            )
 
         blocking_state_exists = exists().where(
             ProcessingState.article_id == Article.id,
-            ProcessingState.stage == PARSING_STAGE,
+            ProcessingState.stage == (
+                ProcessingStage.PARSING
+            ),
             ProcessingState.method_version == (
                 PARSING_METHOD_VERSION
             ),

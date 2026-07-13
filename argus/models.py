@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     DateTime,
+    Enum as SQLAlchemyEnum,
     Float,
     ForeignKey,
     Integer,
@@ -13,6 +14,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from argus.database import Base
+
+from argus.processing import (
+    ProcessingStage,
+    ProcessingStatus,
+)
 
 
 class Article(Base):
@@ -58,8 +64,18 @@ class ProcessingState(Base):
         index=True,
     )
 
-    stage: Mapped[str] = mapped_column(
-        String(50),
+    stage: Mapped[ProcessingStage] = mapped_column(
+        SQLAlchemyEnum(
+            ProcessingStage,
+            name="processing_stage",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
         nullable=False,
         index=True,
     )
@@ -70,10 +86,20 @@ class ProcessingState(Base):
         default="default",
     )
 
-    status: Mapped[str] = mapped_column(
-        String(20),
+    status: Mapped[ProcessingStatus] = mapped_column(
+        SQLAlchemyEnum(
+            ProcessingStatus,
+            name="processing_status",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=20,
+        ),
         nullable=False,
-        default="pending",
+        default=ProcessingStatus.PENDING,
         index=True,
     )
 

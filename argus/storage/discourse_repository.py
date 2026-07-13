@@ -10,7 +10,10 @@ from argus.models import (
     DiscourseAnalysisResult,
     ProcessingState,
 )
-from argus.services.processing import DISCOURSE_STAGE
+from argus.processing import (
+    ProcessingStage,
+    ProcessingStatus,
+)
 from argus.storage.base_repository import BaseRepository
 
 
@@ -29,13 +32,15 @@ class DiscourseAnalysisRepository(
             limit: int = 20,
             retry_failed: bool = False,
     ) -> list[Article]:
-        blocked_statuses = [
-            "running",
-            "done",
+        blocked_statuses: list[ProcessingStatus] = [
+            ProcessingStatus.RUNNING,
+            ProcessingStatus.DONE,
         ]
 
         if not retry_failed:
-            blocked_statuses.append("failed")
+            blocked_statuses.append(
+                ProcessingStatus.FAILED
+            )
 
         analysis_exists = exists().where(
             DiscourseAnalysisResult.article_id == (
@@ -48,7 +53,9 @@ class DiscourseAnalysisRepository(
 
         processing_state_exists = exists().where(
             ProcessingState.article_id == Article.id,
-            ProcessingState.stage == DISCOURSE_STAGE,
+            ProcessingState.stage == (
+                ProcessingStage.DISCOURSE
+            ),
             ProcessingState.method_version == (
                 method_version
             ),

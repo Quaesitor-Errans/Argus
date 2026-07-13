@@ -1,9 +1,9 @@
 from argus.database import create_database, session_manager
 from argus.logging.logger import get_logger
 from argus.parsers.article_parser import extract_article_text
-from argus.services.processing import (
+from argus.processing import (
     PARSING_METHOD_VERSION,
-    PARSING_STAGE,
+    ProcessingStage,
 )
 from argus.storage.article_repository import ArticleRepository
 from argus.storage.processing_repository import (
@@ -41,7 +41,7 @@ def parse_articles(
         for article in articles:
             state = state_repository.get_or_create(
                 article_id=article.id,
-                stage=PARSING_STAGE,
+                stage=ProcessingStage.PARSING,
                 method_version=PARSING_METHOD_VERSION,
             )
 
@@ -83,7 +83,7 @@ def parse_articles(
 
                 state = state_repository.get_or_create(
                     article_id=article.id,
-                    stage=PARSING_STAGE,
+                    stage=ProcessingStage.PARSING,
                     method_version=PARSING_METHOD_VERSION,
                 )
 

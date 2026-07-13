@@ -12,11 +12,11 @@ from sqlalchemy.orm import (
 from argus.storage.base_repository import BaseRepository
 
 
-class TestBase(DeclarativeBase):
+class RepositoryTestBase(DeclarativeBase):
     pass
 
 
-class TestModel(TestBase):
+class RepositoryTestModel(RepositoryTestBase):
     __tablename__ = "test_models"
 
     id: Mapped[int] = mapped_column(
@@ -31,23 +31,23 @@ class BaseRepositoryTests(unittest.TestCase):
 
         self.repository = BaseRepository(
             session=self.session,
-            model_type=TestModel,
+            model_type=RepositoryTestModel,
         )
 
     def test_get_by_id_uses_configured_model(self) -> None:
-        expected = TestModel()
+        expected = RepositoryTestModel()
         self.session.get.return_value = expected
 
         result = self.repository.get_by_id(42)
 
         self.assertIs(result, expected)
         self.session.get.assert_called_once_with(
-            TestModel,
+            RepositoryTestModel,
             42,
         )
 
     def test_add_returns_model_without_commit(self) -> None:
-        model = TestModel()
+        model = RepositoryTestModel()
 
         result = self.repository.add(model)
 
@@ -57,8 +57,8 @@ class BaseRepositoryTests(unittest.TestCase):
 
     def test_add_all_accepts_iterable(self) -> None:
         models = [
-            TestModel(),
-            TestModel(),
+            RepositoryTestModel(),
+            RepositoryTestModel(),
         ]
 
         self.repository.add_all(
@@ -70,7 +70,7 @@ class BaseRepositoryTests(unittest.TestCase):
         )
 
     def test_delete_does_not_commit(self) -> None:
-        model = TestModel()
+        model = RepositoryTestModel()
 
         self.repository.delete(model)
 
@@ -83,7 +83,7 @@ class BaseRepositoryTests(unittest.TestCase):
         self.session.flush.assert_called_once_with()
 
     def test_refresh_delegates_to_session(self) -> None:
-        model = TestModel()
+        model = RepositoryTestModel()
 
         self.repository.refresh(model)
 

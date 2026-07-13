@@ -4,11 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from argus.models import ProcessingState
-from argus.services.processing import (
-    DONE,
-    FAILED,
-    PENDING,
-    RUNNING,
+from argus.processing import (
+    ProcessingStage,
+    ProcessingStatus,
 )
 from argus.storage.base_repository import BaseRepository
 
@@ -25,7 +23,7 @@ class ProcessingStateRepository(
     def get(
             self,
             article_id: int,
-            stage: str,
+            stage: ProcessingStage,
             method_version: str,
     ) -> ProcessingState | None:
         statement = select(ProcessingState).where(
@@ -41,7 +39,7 @@ class ProcessingStateRepository(
     def get_or_create(
             self,
             article_id: int,
-            stage: str,
+            stage: ProcessingStage,
             method_version: str,
     ) -> ProcessingState:
         state = self.get(
@@ -57,7 +55,7 @@ class ProcessingStateRepository(
             article_id=article_id,
             stage=stage,
             method_version=method_version,
-            status=PENDING,
+            status=ProcessingStatus.PENDING,
         )
 
         self.add(state)
@@ -70,7 +68,7 @@ class ProcessingStateRepository(
             self,
             state: ProcessingState,
     ) -> None:
-        state.status = RUNNING
+        state.status = ProcessingStatus.RUNNING
         state.attempts += 1
         state.last_error = None
         state.updated_at = datetime.now(timezone.utc)
@@ -81,7 +79,7 @@ class ProcessingStateRepository(
             self,
             state: ProcessingState,
     ) -> None:
-        state.status = DONE
+        state.status = ProcessingStatus.DONE
         state.last_error = None
         state.updated_at = datetime.now(timezone.utc)
 
@@ -92,7 +90,7 @@ class ProcessingStateRepository(
             state: ProcessingState,
             error: str,
     ) -> None:
-        state.status = FAILED
+        state.status = ProcessingStatus.FAILED
         state.last_error = error[:4000]
         state.updated_at = datetime.now(timezone.utc)
 

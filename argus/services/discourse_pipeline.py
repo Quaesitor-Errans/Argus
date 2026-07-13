@@ -1,9 +1,9 @@
 from argus.analysis.discourse_analyzer import DiscourseAnalyzer
 from argus.database import create_database, session_manager
 from argus.logging.logger import get_logger
-from argus.services.processing import (
+from argus.processing import (
     DISCOURSE_METHOD_VERSION,
-    DISCOURSE_STAGE,
+    ProcessingStage,
 )
 from argus.storage.discourse_repository import (
     DiscourseAnalysisRepository,
@@ -52,7 +52,7 @@ def run_discourse_pipeline(
         for article in articles:
             state = state_repository.get_or_create(
                 article_id=article.id,
-                stage=DISCOURSE_STAGE,
+                stage=ProcessingStage.DISCOURSE,
                 method_version=DISCOURSE_METHOD_VERSION,
             )
 
@@ -99,7 +99,7 @@ def run_discourse_pipeline(
 
                 state = state_repository.get_or_create(
                     article_id=article.id,
-                    stage=DISCOURSE_STAGE,
+                    stage=ProcessingStage.DISCOURSE,
                     method_version=(
                         DISCOURSE_METHOD_VERSION
                     ),
