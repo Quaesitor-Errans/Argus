@@ -1,11 +1,7 @@
 import logging
-from pathlib import Path
 
-from argus.database import PROJECT_ROOT
+from argus.config import LOG_DIRECTORY, LOG_FILE
 
-
-LOG_DIRECTORY = PROJECT_ROOT / "logs"
-LOG_FILE = LOG_DIRECTORY / "argus.log"
 
 LOG_FORMAT = (
     "%(asctime)s | %(levelname)-8s | "

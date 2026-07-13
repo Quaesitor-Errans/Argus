@@ -1,15 +1,16 @@
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from argus.config import DATABASE_PATH
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATABASE_PATH = PROJECT_ROOT / "data" / "database" / "argus.db"
 
-DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+DATABASE_PATH.parent.mkdir(
+    parents=True,
+    exist_ok=True,
+)
 
 engine = create_engine(
     f"sqlite:///{DATABASE_PATH}",

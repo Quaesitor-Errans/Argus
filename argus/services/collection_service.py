@@ -19,11 +19,9 @@ def collect_articles() -> None:
         repository = ArticleRepository(session)
 
         for feed in RSS_FEEDS:
-            feed_name = feed["name"]
-
             logger.info(
                 "Collecting feed: %s",
-                feed_name,
+                feed.name,
             )
 
             try:
@@ -34,7 +32,7 @@ def collect_articles() -> None:
 
                 logger.exception(
                     "Feed collection failed: %s",
-                    feed_name,
+                    feed.name,
                 )
                 continue
 
@@ -47,7 +45,7 @@ def collect_articles() -> None:
                 if not title or not url:
                     logger.warning(
                         "Skipping invalid RSS entry from %s",
-                        feed_name,
+                        feed.name,
                     )
                     continue
 
@@ -69,7 +67,7 @@ def collect_articles() -> None:
 
             logger.info(
                 "Feed collected: %s; new articles: %s",
-                feed_name,
+                feed.name,
                 collected_from_feed,
             )
 
