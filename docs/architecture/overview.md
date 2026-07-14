@@ -4,11 +4,14 @@
 
 Argus is an explainable information-space analysis platform.
 
-Unlike traditional news aggregators or Large Language Models, Argus does not aim to answer questions directly.
+Argus is not a news aggregator or a general-purpose chatbot.
 
-Its goal is to continuously observe the global information space, extract measurable information from it, compare different narratives and provide transparent analytical reports.
+Its goal is to observe the global information space, extract measurable
+information, compare narratives, and provide transparent analytical reports.
 
-Argus is designed as a research platform rather than a chatbot.
+Argus may expose conversational interfaces for querying and explaining its
+results. These interfaces operate on evidence-backed application services and
+do not replace the analytical core.
 
 ---
 
@@ -82,44 +85,24 @@ Communication between modules should happen through clearly defined interfaces.
 
 # High-Level Workflow
 
-Internet
+```mermaid
+flowchart TD
+    sources["Media, archives, official records, datasets"]
+    collectors["Collectors"]
+    documents["Versioned source documents"]
+    parsing["Parsing and language processing"]
+    extraction["Entities, claims, events, observations"]
+    analysis["Comparison and evidence evaluation"]
+    reports["Reports, graphs, APIs, conversational interfaces"]
 
-↓
+    sources --> collectors
+    collectors --> documents
+    documents --> parsing
+    parsing --> extraction
+    extraction --> analysis
+    analysis --> reports
 
-Collectors
-
-↓
-
-Raw Documents
-
-↓
-
-Storage
-
-↓
-
-Parsing
-
-↓
-
-Linguistic Analysis
-
-↓
-
-Fact Verification
-
-↓
-
-Event Detection
-
-↓
-
-Narrative Detection
-
-↓
-
-Cross-source Comparison
-
-↓
-
-Reports
+Architecture Documents
+Platform Scope and Boundaries
+Argus Data Model
+Processing Pipeline

@@ -91,12 +91,17 @@ Important properties:
 
 - name;
 - source type;
-- country;
-- language;
+- jurisdictions and operating countries;
+- publication languages;
 - ownership;
 - affiliations;
 - official status;
-- known relationships with other sources.
+- known relationships with other sources;
+- temporal validity of source metadata.
+
+Country, ownership, affiliation, publication language and intended audience are
+separate properties. They may change over time and must not be collapsed into
+a single permanent source label.
 
 A source profile provides context. It must not automatically determine whether its claims are true.
 
@@ -121,16 +126,20 @@ Important properties:
 
 - source;
 - author or speaker;
-- publication time;
+- publication time or time interval;
 - collection time;
-- language;
-- URL or archive reference;
+- original language using a BCP 47 identifier;
+- canonical URL or archive reference;
 - raw content;
 - normalized content;
 - content hash;
 - document type.
 
 A document is evidence that particular information was published. It is not evidence that every statement inside it is true.
+A translation is a derived artifact. It must retain a relationship to the
+original document and record the translation method, model, version, and
+creation time. Analytical evidence should reference the original-language
+content whenever possible.
 
 ---
 
@@ -369,10 +378,16 @@ Important properties:
 - target object;
 - method name;
 - method version;
+- analysis-run identifier;
+- model or lexicon version where applicable;
+- configuration;
+- input object versions;
+- software version;
 - result;
 - confidence;
 - evidence chain;
-- creation time.
+- creation time;
+- warnings and execution limitations.
 
 Analysis results must be reproducible where the underlying method is deterministic.
 
@@ -636,9 +651,13 @@ These categories must not be collapsed into a single generic `fact` type.
 All extracted and derived objects must record:
 
 - creation time;
-- method or model;
-- method version;
-- source-data version where applicable;
+- method or model identifier;
+- method, model or lexicon version;
+- analysis-run identifier where applicable;
+- relevant configuration;
+- input object and source-data versions;
+- input content hash where applicable;
+- software version;
 - superseded or current status.
 
 Historical analysis results should remain available after methods are updated.
