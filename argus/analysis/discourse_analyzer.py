@@ -2,24 +2,39 @@ from collections.abc import Iterable
 
 import spacy
 from spacy.language import Language
-from spacy.tokens import Doc, Span, Token
+from spacy.tokens import Span, Token
 
 from argus.analysis.lexicons import (
-    CERTAINTY_MARKERS,
-    FEAR_MARKERS,
-    THREAT_MARKERS,
-    UNCERTAINTY_MARKERS,
+    LEXICONS_BY_CATEGORY,
 )
-from argus.analysis.schemas import DiscourseMetrics, EvidenceSpan
+from argus.analysis.schemas import (
+    DiscourseMetrics,
+    EvidenceCategory,
+    EvidenceSpan,
+)
 
 
 class DiscourseAnalyzer:
-    def __init__(self, model_name: str = "en_core_web_sm") -> None:
-        self.nlp: Language = spacy.load(model_name)
+    def __init__(
+            self,
+            model_name: str = "en_core_web_sm",
+            *,
+            nlp: Language | None = None,
+    ) -> None:
+        self.nlp = (
+            nlp
+            if nlp is not None
+            else spacy.load(model_name)
+        )
 
-    def analyze(self, text: str) -> DiscourseMetrics:
+    def analyze(
+            self,
+            text: str,
+    ) -> DiscourseMetrics:
         if not text or not text.strip():
-            raise ValueError("Text must not be empty.")
+            raise ValueError(
+                "Text must not be empty."
+            )
 
         doc = self.nlp(text)
 
@@ -27,43 +42,38 @@ class DiscourseAnalyzer:
         word_tokens = [
             token
             for token in doc
-            if not token.is_space and not token.is_punct
+            if not token.is_space
+               and not token.is_punct
         ]
 
         evidence: list[EvidenceSpan] = []
+        marker_counts: dict[
+            EvidenceCategory,
+            int,
+        ] = {}
 
-        certainty_count = self._collect_lexicon_matches(
-            sentences=sentences,
-            lexicon=CERTAINTY_MARKERS,
-            category="certainty",
-            evidence=evidence,
-        )
-        uncertainty_count = self._collect_lexicon_matches(
-            sentences=sentences,
-            lexicon=UNCERTAINTY_MARKERS,
-            category="uncertainty",
-            evidence=evidence,
-        )
-        fear_count = self._collect_lexicon_matches(
-            sentences=sentences,
-            lexicon=FEAR_MARKERS,
-            category="fear",
-            evidence=evidence,
-        )
-        threat_count = self._collect_lexicon_matches(
-            sentences=sentences,
-            lexicon=THREAT_MARKERS,
-            category="threat",
-            evidence=evidence,
-        )
+        for category, lexicon in LEXICONS_BY_CATEGORY:
+            count, category_evidence = (
+                self._find_lexicon_matches(
+                    sentences=sentences,
+                    lexicon=lexicon,
+                    category=category,
+                )
+            )
 
-        first_person_plural_count = self._count_lemmas(
-            word_tokens,
-            {"we", "our", "ours", "us"},
+            marker_counts[category] = count
+            evidence.extend(category_evidence)
+        first_person_plural_count = (
+            self._count_lemmas(
+                word_tokens,
+                {"we", "our", "ours", "us"},
+            )
         )
-        third_person_plural_count = self._count_lemmas(
-            word_tokens,
-            {"they", "their", "theirs", "them"},
+        third_person_plural_count = (
+            self._count_lemmas(
+                word_tokens,
+                {"they", "their", "theirs", "them"},
+            )
         )
 
         sentence_count = len(sentences)
@@ -84,12 +94,24 @@ class DiscourseAnalyzer:
             ),
             question_count=text.count("?"),
             exclamation_count=text.count("!"),
-            first_person_plural_count=first_person_plural_count,
-            third_person_plural_count=third_person_plural_count,
-            certainty_marker_count=certainty_count,
-            uncertainty_marker_count=uncertainty_count,
-            fear_marker_count=fear_count,
-            threat_marker_count=threat_count,
+            first_person_plural_count=(
+                first_person_plural_count
+            ),
+            third_person_plural_count=(
+                third_person_plural_count
+            ),
+            certainty_marker_count=marker_counts[
+                EvidenceCategory.CERTAINTY
+            ],
+            uncertainty_marker_count=marker_counts[
+                EvidenceCategory.UNCERTAINTY
+            ],
+            fear_marker_count=marker_counts[
+                EvidenceCategory.FEAR
+            ],
+            threat_marker_count=marker_counts[
+                EvidenceCategory.THREAT
+            ],
             evidence=evidence,
         )
 
@@ -105,20 +127,22 @@ class DiscourseAnalyzer:
         )
 
     @staticmethod
-    def _collect_lexicon_matches(
+    def _find_lexicon_matches(
             sentences: list[Span],
-            lexicon: set[str],
-            category: str,
-            evidence: list[EvidenceSpan],
-    ) -> int:
+            lexicon: frozenset[str],
+            category: EvidenceCategory,
+    ) -> tuple[int, list[EvidenceSpan]]:
         total = 0
+        evidence: list[EvidenceSpan] = []
 
         for sentence in sentences:
-            matched_terms = [
-                token.lemma_.lower()
-                for token in sentence
-                if token.lemma_.lower() in lexicon
-            ]
+            matched_terms: list[str] = []
+
+            for token in sentence:
+                lemma = token.lemma_.lower()
+
+                if lemma in lexicon:
+                    matched_terms.append(lemma)
 
             if not matched_terms:
                 continue
@@ -129,8 +153,10 @@ class DiscourseAnalyzer:
                 EvidenceSpan(
                     category=category,
                     sentence=sentence.text.strip(),
-                    matched_terms=sorted(set(matched_terms)),
+                    matched_terms=sorted(
+                        set(matched_terms)
+                    ),
                 )
             )
 
-        return total
+        return total, evidence

@@ -1,11 +1,23 @@
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class EvidenceCategory(str, Enum):
+    """Observable lexical evidence category."""
+
+    CERTAINTY = "certainty"
+    UNCERTAINTY = "uncertainty"
+    FEAR = "fear"
+    THREAT = "threat"
 
 
 @dataclass(slots=True)
 class EvidenceSpan:
-    category: str
+    category: EvidenceCategory
     sentence: str
-    matched_terms: list[str] = field(default_factory=list)
+    matched_terms: list[str] = field(
+        default_factory=list
+    )
 
 
 @dataclass(slots=True)
@@ -24,4 +36,6 @@ class DiscourseMetrics:
     fear_marker_count: int
     threat_marker_count: int
 
-    evidence: list[EvidenceSpan] = field(default_factory=list)
+    evidence: list[EvidenceSpan] = field(
+        default_factory=list
+    )

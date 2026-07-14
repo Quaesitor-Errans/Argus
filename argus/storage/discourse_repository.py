@@ -120,7 +120,7 @@ class DiscourseAnalysisRepository(
         evidence_rows = [
             AnalysisEvidence(
                 analysis_result_id=result.id,
-                category=evidence.category,
+                category=evidence.category.value,
                 sentence=evidence.sentence,
                 matched_terms=json.dumps(
                     evidence.matched_terms,
