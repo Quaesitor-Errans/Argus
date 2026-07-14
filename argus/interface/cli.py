@@ -3,6 +3,7 @@ import typer
 from argus.services.collection_service import collect_articles
 from argus.services.discourse_pipeline import run_discourse_pipeline
 from argus.services.parsing_service import parse_articles
+from argus.storage.migrations import upgrade_database
 
 app = typer.Typer(
     name="argus",
@@ -10,6 +11,11 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+@app.callback()
+def initialize_database() -> None:
+    """Apply pending database migrations before running a command."""
+
+    upgrade_database()
 
 @app.command()
 def collect() -> None:

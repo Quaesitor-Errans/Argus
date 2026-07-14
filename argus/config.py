@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
 
 DATA_DIRECTORY = PROJECT_ROOT / "data"
 DATABASE_DIRECTORY = DATA_DIRECTORY / "database"

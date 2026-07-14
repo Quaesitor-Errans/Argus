@@ -1,4 +1,4 @@
-from argus.database import create_database, session_manager
+from argus.database import session_manager
 from argus.logging.logger import get_logger
 from argus.parsers.article_parser import extract_article_text
 from argus.processing import (
@@ -18,7 +18,7 @@ def parse_articles(
         limit: int = 20,
         retry_failed: bool = False,
 ) -> None:
-    create_database()
+
 
     parsed_count = 0
     failed_count = 0

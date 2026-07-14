@@ -1,6 +1,6 @@
 from argus.collector.rss_adapter import fetch_rss_entries
 from argus.config import RSS_FEEDS
-from argus.database import create_database, session_manager
+from argus.database import session_manager
 from argus.logging.logger import get_logger
 from argus.models import Article
 from argus.storage.article_repository import ArticleRepository
@@ -10,7 +10,6 @@ logger = get_logger(__name__)
 
 
 def collect_articles() -> None:
-    create_database()
 
     new_articles_count = 0
     failed_feeds_count = 0

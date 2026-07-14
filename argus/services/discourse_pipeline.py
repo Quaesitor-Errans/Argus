@@ -1,5 +1,5 @@
 from argus.analysis.discourse_analyzer import DiscourseAnalyzer
-from argus.database import create_database, session_manager
+from argus.database import session_manager
 from argus.logging.logger import get_logger
 from argus.processing import (
     DISCOURSE_METHOD_VERSION,
@@ -20,8 +20,6 @@ def run_discourse_pipeline(
         limit: int = 10,
         retry_failed: bool = False,
 ) -> None:
-    create_database()
-
     analyzer = DiscourseAnalyzer()
 
     analyzed_count = 0

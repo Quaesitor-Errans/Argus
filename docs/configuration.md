@@ -17,12 +17,17 @@ Configured paths include:
 - database directory;
 - SQLite database file;
 - logging directory;
-- application log file.
+- application log file;
+- Alembic configuration file.
 
 The modules responsible for using a path are also responsible for creating its
 parent directory.
 
 Importing configuration alone must not create files or directories.
+
+Database schema management is described in
+[Database Migrations](database_migrations.md).
+
 
 ## RSS Sources
 

@@ -53,7 +53,3 @@ session_manager = DatabaseSessionManager(SessionLocal)
 
 class Base(DeclarativeBase):
     pass
-
-
-def create_database() -> None:
-    Base.metadata.create_all(bind=engine)
