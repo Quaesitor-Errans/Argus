@@ -199,21 +199,20 @@ determine truth, classify propaganda, or produce analytical conclusions.
 
 Initial connector families should include:
 
-RSS and Atom;
-scholarly metadata APIs;
-OAI-PMH repositories;
-statistical-data APIs.
+- RSS and Atom;
+- scholarly metadata APIs;
+- OAI-PMH repositories;
+- statistical-data APIs.
 
 Relevant open standards and catalogs include:
 
-Crossref REST API;
-OpenAlex API;
-OAI-PMH;
-IIIF;
-W3C DCAT;
-SDMX;
-W3C PROV-O.
-
+- Crossref REST API;
+- OpenAlex API;
+- OAI-PMH;
+- IIIF;
+- W3C DCAT;
+- SDMX;
+- W3C PROV-O.
 
 ## Candidate lifecycle
 
