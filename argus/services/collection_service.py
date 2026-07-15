@@ -4,7 +4,7 @@ from argus.database import session_manager
 from argus.logging.logger import get_logger
 from argus.models import Article
 from argus.storage.article_repository import ArticleRepository
-
+from argus.storage.source_repository import SourceRepository
 
 logger = get_logger(__name__)
 
@@ -16,6 +16,8 @@ def collect_articles() -> None:
 
     with session_manager.session() as session:
         repository = ArticleRepository(session)
+
+        source_repository = SourceRepository(session)
 
         for feed in RSS_FEEDS:
             logger.info(
@@ -37,6 +39,17 @@ def collect_articles() -> None:
 
             collected_from_feed = 0
 
+            source = source_repository.get_or_create(
+                identifier=(
+                    feed.effective_source_identifier
+                ),
+                name=feed.name,
+                source_type=feed.source_type,
+                primary_jurisdiction=feed.country,
+                default_language=feed.language,
+            )
+            session.commit()
+
             for entry in entries:
                 title = entry.get("title")
                 url = entry.get("link")
@@ -54,6 +67,7 @@ def collect_articles() -> None:
                 article = Article(
                     url=url,
                     title=title,
+                    source_id=source.id,
                     source=entry.get("source"),
                     language=entry.get("language"),
                     content=None,

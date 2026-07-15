@@ -33,15 +33,24 @@ Database schema management is described in
 
 RSS sources are represented by the immutable `RSSFeedConfig` dataclass.
 
-Each source currently contains:
+Each feed currently contains:
 
-- name;
+- display name;
+- stable source identifier;
+- source type;
 - feed URL;
 - language;
 - country or international context.
 
+If no explicit source identifier is configured, the display name is used as
+the initial identifier. An explicit identifier is required before a display
+name can be changed independently.
+
 The configuration objects and the `RSS_FEEDS` collection are immutable during
 application execution.
+
+The normalized persistence model is described in
+[Sources](sources.md).
 
 ## Source Metadata
 
@@ -62,6 +71,10 @@ coverage across countries and media ecosystems.
 The current discourse-analysis method uses the English spaCy model
 `en_core_web_sm`.
 
+The platform architecture targets Arabic, Chinese, English, French, Russian,
+and Spanish. English and Russian are the first implementation targets, while
+the current production discourse pipeline remains English-only.
+
 For this reason, the active RSS configuration currently contains only
 English-language feeds.
 
@@ -76,7 +89,9 @@ Before an RSS source is added:
 2. the feed must contain at least one valid entry;
 3. article entries must provide a title and URL;
 4. the source language and country context must be recorded;
-5. the source must use its own feed rather than an unattributed aggregation
+5. the source identifier must match an existing source when several feeds belong to the same publisher;
+6. the source type must describe the origin, not its reliability;
+7. the source must use its own feed rather than an unattributed aggregation
    proxy.
 
 Network availability is verified manually because unit tests must not depend on

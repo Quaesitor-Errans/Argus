@@ -1,5 +1,6 @@
 import unittest
 from dataclasses import FrozenInstanceError
+from argus.sources import SourceType
 
 from argus.config import (
         DATABASE_PATH,
@@ -35,6 +36,46 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(feed.url)
         self.assertTrue(feed.language)
         self.assertTrue(feed.country)
+
+        self.assertTrue(
+            feed.effective_source_identifier
+        )
+        self.assertIsInstance(
+            feed.source_type,
+            SourceType,
+        )
+
+    def test_source_identifier_defaults_to_name(self) -> None:
+        feed = RSSFeedConfig(
+            name="Example News",
+            url="https://example.com/rss",
+            language="en",
+            country="Example Country",
+        )
+
+        self.assertEqual(
+            feed.effective_source_identifier,
+            "Example News",
+        )
+
+    def test_explicit_source_identifier_is_preserved(self) -> None:
+        feed = RSSFeedConfig(
+            name="Example World Service",
+            url="https://example.com/world/rss",
+            language="en",
+            country="Example Country",
+            source_identifier="example-news",
+            source_type=SourceType.NEWS_AGENCY,
+        )
+
+        self.assertEqual(
+            feed.effective_source_identifier,
+            "example-news",
+        )
+        self.assertEqual(
+            feed.source_type,
+            SourceType.NEWS_AGENCY,
+        )
 
     def test_rss_feed_config_is_immutable(self) -> None:
         feed = RSS_FEEDS[0]

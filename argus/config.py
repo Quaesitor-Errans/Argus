@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-
+from argus.sources import SourceType
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
@@ -21,6 +21,14 @@ class RSSFeedConfig:
     url: str
     language: str
     country: str
+    source_identifier: str | None = None
+    source_type: SourceType = SourceType.NEWS_MEDIA
+
+    @property
+    def effective_source_identifier(self) -> str:
+        """Return the stable source identifier used for persistence."""
+
+        return self.source_identifier or self.name
 
 
 RSS_FEEDS: tuple[RSSFeedConfig, ...] = (

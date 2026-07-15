@@ -20,11 +20,81 @@ from argus.processing import (
     ProcessingStatus,
 )
 
+from argus.sources import SourceType
+
+def utc_now() -> datetime:
+    """Return the current timezone-aware UTC datetime."""
+
+    return datetime.now(timezone.utc)
+
+class Source(Base):
+    __tablename__ = "sources"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    identifier: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    source_type: Mapped[SourceType] = mapped_column(
+        SQLAlchemyEnum(
+            SourceType,
+            name="source_type",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
+        nullable=False,
+        default=SourceType.NEWS_MEDIA,
+        index=True,
+    )
+
+    primary_jurisdiction: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    default_language: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
 
 class Article(Base):
     __tablename__ = "articles"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "sources.id",
+            name="fk_articles_source_id_sources",
+        ),
+        nullable=True,
+        index=True,
+    )
 
     url: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
@@ -34,8 +104,10 @@ class Article(Base):
     language: Mapped[str | None] = mapped_column(String, nullable=True)
 
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+    )
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
 

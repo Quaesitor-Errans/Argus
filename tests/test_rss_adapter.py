@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 from argus.collector.rss_adapter import fetch_rss_entries
 from argus.config import RSSFeedConfig
+from argus.sources import SourceType
 
 
 class RSSAdapterTests(unittest.TestCase):
@@ -12,6 +13,8 @@ class RSSAdapterTests(unittest.TestCase):
             url="https://example.com/feed.xml",
             language="en",
             country="Test Country",
+            source_identifier="test-source",
+            source_type=SourceType.NEWS_AGENCY,
         )
 
     @patch(
@@ -56,6 +59,8 @@ class RSSAdapterTests(unittest.TestCase):
                         "Mon, 13 Jul 2026 12:00:00 GMT"
                     ),
                     "source": "Test Source",
+                    "source_identifier": "test-source",
+                    "source_type": SourceType.NEWS_AGENCY,
                     "language": "en",
                     "country": "Test Country",
                 }

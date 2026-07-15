@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from argus.config import ALEMBIC_CONFIG_PATH
 from argus.storage.migrations import upgrade_database
@@ -18,6 +18,7 @@ EXPECTED_TABLES = {
     "articles",
     "discourse_analysis_results",
     "processing_states",
+    "sources",
 }
 
 class MigrationServiceTests(unittest.TestCase):
@@ -65,6 +66,156 @@ class MigrationIntegrationTests(unittest.TestCase):
                 test_engine.dispose()
 
         self.assertEqual(table_names, EXPECTED_TABLES)
+
+    def test_source_migration_backfills_legacy_articles(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                    Path(temporary_directory) / "legacy_test.db"
+            )
+            database_url = (
+                f"sqlite:///{database_path.as_posix()}"
+            )
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                    os.environ,
+                    {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(
+                    config,
+                    "deef19cb438c",
+                )
+
+                legacy_engine = create_engine(database_url)
+
+                try:
+                    with legacy_engine.begin() as connection:
+                        connection.execute(
+                            text(
+                                """
+                                INSERT INTO articles (
+                                    url,
+                                    title,
+                                    source,
+                                    language,
+                                    fetched_at
+                                )
+                                VALUES (
+                                           :url,
+                                           :title,
+                                           :source,
+                                           :language,
+                                           CURRENT_TIMESTAMP
+                                       )
+                                """
+                            ),
+                            {
+                                "url": "https://example.com/legacy",
+                                "title": "Legacy article",
+                                "source": "Legacy News",
+                                "language": "en",
+                            },
+                        )
+                finally:
+                    legacy_engine.dispose()
+                command.upgrade(config, "head")
+
+            result_engine = create_engine(database_url)
+
+            try:
+                with result_engine.connect() as connection:
+                    source = connection.execute(
+                        text(
+                            """
+                            SELECT
+                                id,
+                                identifier,
+                                name,
+                                source_type,
+                                primary_jurisdiction,
+                                default_language
+                            FROM sources
+                            """
+                        )
+                    ).mappings().one()
+
+                    article_source_id = connection.execute(
+                        text(
+                            """
+                            SELECT source_id
+                            FROM articles
+                            WHERE url = :url
+                            """
+                        ),
+                        {
+                            "url": "https://example.com/legacy",
+                        },
+                    ).scalar_one()
+            finally:
+                result_engine.dispose()
+        self.assertEqual(
+            source["identifier"],
+            "Legacy News",
+        )
+        self.assertEqual(source["name"], "Legacy News")
+        self.assertEqual(
+            source["source_type"],
+            "news_media",
+        )
+        self.assertIsNone(
+            source["primary_jurisdiction"]
+        )
+        self.assertEqual(
+            source["default_language"],
+            "en",
+        )
+        self.assertEqual(
+            article_source_id,
+            source["id"],
+        )
+
+    def test_source_migration_downgrades_to_baseline(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                    Path(temporary_directory) / "downgrade_test.db"
+            )
+            database_url = (
+                f"sqlite:///{database_path.as_posix()}"
+            )
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                    os.environ,
+                    {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(
+                    config,
+                    "deef19cb438c",
+                )
+            test_engine = create_engine(database_url)
+
+            try:
+                inspector = inspect(test_engine)
+                table_names = set(
+                    inspector.get_table_names()
+                )
+                article_columns = {
+                    column["name"]
+                    for column in inspector.get_columns(
+                        "articles"
+                    )
+                }
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn("sources", table_names)
+        self.assertNotIn("source_id", article_columns)
+        self.assertIn("source", article_columns)
 
 
 if __name__ == "__main__":
