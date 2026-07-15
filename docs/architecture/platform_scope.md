@@ -94,15 +94,18 @@ models may later be supported through optional adapters.
 The domain will be introduced in this order:
 
 1. database migration infrastructure;
-2. source and document foundations;
-3. analytical provenance and result versioning;
-4. multilingual processing contracts;
-5. entity extraction;
-6. claim extraction;
-7. event reconstruction;
-8. relationships and knowledge graph;
-9. evidence-backed reporting;
-10. optional conversational interfaces.
+2. normalized source foundation;
+3. protocol-independent acquisition contracts;
+4. collection endpoints and retrieval provenance;
+5. raw artifacts, documents, and document versions;
+6. analytical provenance and result versioning;
+7. multilingual processing contracts;
+8. entity extraction;
+9. claim extraction;
+10. event reconstruction;
+11. relationships and knowledge graph;
+12. evidence-backed reporting;
+13. optional conversational interfaces.
 
 This sequence may evolve, but later analytical features must not bypass the
 provenance and evidence foundations.

@@ -85,7 +85,6 @@ Communication between modules should happen through clearly defined interfaces.
 
 # High-Level Workflow
 
-```mermaid
 flowchart TD
     sources["Media, archives, official records, datasets"]
     collectors["Collectors"]
@@ -102,7 +101,8 @@ flowchart TD
     extraction --> analysis
     analysis --> reports
 
-Architecture Documents
-Platform Scope and Boundaries
-Argus Data Model
-Processing Pipeline
+# Architecture Documents
+- [Platform Scope and Boundaries](platform_scope.md)
+- [Acquisition and Provenance Data Flow](data_flow.md)
+- [Argus Data Model](data_model.md)
+- [Processing Pipeline](pipeline.md)
