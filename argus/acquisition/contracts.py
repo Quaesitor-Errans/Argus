@@ -19,6 +19,7 @@ class RetrievalOutcome(str, Enum):
     UNAVAILABLE = "unavailable"
     ACCESS_RESTRICTED = "access_restricted"
 
+
 def _validate_aware_datetime(
         value: datetime | None,
         field_name: str,
