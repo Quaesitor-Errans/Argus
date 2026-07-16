@@ -24,13 +24,10 @@ def _validate_aware_datetime(
         value: datetime | None,
         field_name: str,
 ) -> None:
-    if (
-            value is not None
-            and (
-            value.tzinfo is None
-            or value.utcoffset() is None
-    )
-    ):
+    if value is None:
+        return
+
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(
             f"{field_name} must be timezone-aware."
         )
