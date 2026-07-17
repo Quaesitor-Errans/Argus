@@ -25,6 +25,14 @@ The normalized `Source` model stores:
 
 Articles reference the normalized source through `Article.source_id`.
 
+RSS discovery is performed through the protocol-independent acquisition
+contracts. `RSSConnector` converts feed entries into immutable
+`CandidateRecord` objects before the collection service creates articles.
+
+The legacy `fetch_rss_entries()` adapter remains available during the
+incremental transition, but the collection service no longer depends on its
+RSS-specific dictionary representation.
+
 ## Source identity
 
 `Source.identifier` is the stable machine-facing identity.

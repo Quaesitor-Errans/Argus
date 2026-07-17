@@ -1,9 +1,15 @@
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+from argus.acquisition import (
+    AcquisitionMode,
+    CandidateRecord,
+    DiscoveryRequest,
+)
 from argus.config import RSSFeedConfig
 from argus.database import Base, DatabaseSessionManager
 from argus.models import Article, Source
@@ -29,7 +35,7 @@ class CollectionServiceTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_collection_persists_normalized_source(
-            self,
+        self,
     ) -> None:
         feed = RSSFeedConfig(
             name="Example News",
@@ -39,18 +45,25 @@ class CollectionServiceTests(unittest.TestCase):
             source_identifier="example-news",
             source_type=SourceType.NEWS_AGENCY,
         )
-        entries = [
-            {
-                "title": "Example article",
-                "link": "https://example.com/article",
-                "published": None,
-                "source": "Example News",
-                "source_identifier": "example-news",
-                "source_type": SourceType.NEWS_AGENCY,
-                "language": "en",
-                "country": "Example Country",
-            }
-        ]
+        published_at = datetime(
+            2026,
+            7,
+            16,
+            12,
+            0,
+            tzinfo=timezone.utc,
+        )
+        candidate = CandidateRecord(
+            connector_id="rss",
+            connector_version="1.0.0",
+            location="https://example.com/article",
+            discovered_at=published_at,
+            external_identifier="article-1",
+            title="Example article",
+            source_identifier="example-news",
+            language="en",
+            published_at=published_at,
+        )
 
         with (
             patch(
@@ -58,15 +71,26 @@ class CollectionServiceTests(unittest.TestCase):
                 (feed,),
             ),
             patch(
-                "argus.services.collection_service.fetch_rss_entries",
-                return_value=entries,
-            ),
+                "argus.services.collection_service.RSSConnector"
+            ) as connector_class,
             patch(
                 "argus.services.collection_service.session_manager",
                 self.session_manager,
             ),
         ):
+            connector = connector_class.return_value
+            connector.discover.return_value = [
+                candidate
+            ]
+
             collect_articles()
+
+        connector_class.assert_called_once_with(feed)
+        connector.discover.assert_called_once_with(
+            DiscoveryRequest(
+                mode=AcquisitionMode.CONTINUOUS,
+            )
+        )
 
         with self.session_factory() as session:
             source = session.scalar(
@@ -103,6 +127,14 @@ class CollectionServiceTests(unittest.TestCase):
             self.assertEqual(
                 article.source,
                 "Example News",
+            )
+            self.assertEqual(
+                article.language,
+                "en",
+            )
+            self.assertEqual(
+                article.published_at,
+                published_at.replace(tzinfo=None),
             )
 
 

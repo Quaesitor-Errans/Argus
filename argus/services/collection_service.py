@@ -1,4 +1,8 @@
-from argus.collector.rss_adapter import fetch_rss_entries
+from argus.acquisition import (
+    AcquisitionMode,
+    DiscoveryRequest,
+)
+from argus.collector.rss_connector import RSSConnector
 from argus.config import RSS_FEEDS
 from argus.database import session_manager
 from argus.logging.logger import get_logger
@@ -10,9 +14,11 @@ logger = get_logger(__name__)
 
 
 def collect_articles() -> None:
-
     new_articles_count = 0
     failed_feeds_count = 0
+    discovery_request = DiscoveryRequest(
+        mode=AcquisitionMode.CONTINUOUS,
+    )
 
     with session_manager.session() as session:
         repository = ArticleRepository(session)
@@ -26,7 +32,10 @@ def collect_articles() -> None:
             )
 
             try:
-                entries = fetch_rss_entries(feed)
+                connector = RSSConnector(feed)
+                candidates = connector.discover(
+                    discovery_request
+                )
 
             except Exception:
                 failed_feeds_count += 1
@@ -50,9 +59,9 @@ def collect_articles() -> None:
             )
             session.commit()
 
-            for entry in entries:
-                title = entry.get("title")
-                url = entry.get("link")
+            for candidate in candidates:
+                title = candidate.title
+                url = candidate.location
 
                 if not title or not url:
                     logger.warning(
@@ -68,8 +77,9 @@ def collect_articles() -> None:
                     url=url,
                     title=title,
                     source_id=source.id,
-                    source=entry.get("source"),
-                    language=entry.get("language"),
+                    source=feed.name,
+                    language=candidate.language,
+                    published_at=candidate.published_at,
                     content=None,
                 )
 
