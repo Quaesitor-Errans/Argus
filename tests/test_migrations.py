@@ -16,6 +16,7 @@ EXPECTED_TABLES = {
     "alembic_version",
     "analysis_evidence",
     "articles",
+    "collection_endpoints",
     "discourse_analysis_results",
     "processing_states",
     "sources",
@@ -25,9 +26,9 @@ class MigrationServiceTests(unittest.TestCase):
     @patch("argus.storage.migrations.command.upgrade")
     @patch("argus.storage.migrations.Config")
     def test_upgrade_database_applies_head_revision(
-            self,
-            config_class,
-            upgrade,
+        self,
+        config_class,
+        upgrade,
     ):
         config = config_class.return_value
 
@@ -43,7 +44,7 @@ class MigrationIntegrationTests(unittest.TestCase):
     def test_initial_migration_creates_current_schema(self):
         with TemporaryDirectory() as temporary_directory:
             database_path = (
-                    Path(temporary_directory) / "migration_test.db"
+                Path(temporary_directory) / "migration_test.db"
             )
             database_url = (
                 f"sqlite:///{database_path.as_posix()}"
@@ -51,8 +52,8 @@ class MigrationIntegrationTests(unittest.TestCase):
             config = Config(str(ALEMBIC_CONFIG_PATH))
 
             with patch.dict(
-                    os.environ,
-                    {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
             ):
                 command.upgrade(config, "head")
 
@@ -68,11 +69,11 @@ class MigrationIntegrationTests(unittest.TestCase):
         self.assertEqual(table_names, EXPECTED_TABLES)
 
     def test_source_migration_backfills_legacy_articles(
-            self,
+        self,
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
             database_path = (
-                    Path(temporary_directory) / "legacy_test.db"
+                Path(temporary_directory) / "legacy_test.db"
             )
             database_url = (
                 f"sqlite:///{database_path.as_posix()}"
@@ -80,8 +81,8 @@ class MigrationIntegrationTests(unittest.TestCase):
             config = Config(str(ALEMBIC_CONFIG_PATH))
 
             with patch.dict(
-                    os.environ,
-                    {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
             ):
                 command.upgrade(
                     config,
@@ -177,11 +178,11 @@ class MigrationIntegrationTests(unittest.TestCase):
         )
 
     def test_source_migration_downgrades_to_baseline(
-            self,
+        self,
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
             database_path = (
-                    Path(temporary_directory) / "downgrade_test.db"
+                Path(temporary_directory) / "downgrade_test.db"
             )
             database_url = (
                 f"sqlite:///{database_path.as_posix()}"
@@ -189,8 +190,8 @@ class MigrationIntegrationTests(unittest.TestCase):
             config = Config(str(ALEMBIC_CONFIG_PATH))
 
             with patch.dict(
-                    os.environ,
-                    {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
             ):
                 command.upgrade(config, "head")
                 command.downgrade(
@@ -216,6 +217,43 @@ class MigrationIntegrationTests(unittest.TestCase):
         self.assertNotIn("sources", table_names)
         self.assertNotIn("source_id", article_columns)
         self.assertIn("source", article_columns)
+
+    def test_endpoint_migration_downgrades_to_source_schema(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "endpoint_downgrade_test.db"
+            )
+            database_url = (
+                f"sqlite:///{database_path.as_posix()}"
+            )
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(
+                    config,
+                    "214ca03fb3ed",
+                )
+
+            test_engine = create_engine(database_url)
+
+            try:
+                table_names = set(
+                    inspect(test_engine).get_table_names()
+                )
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn(
+            "collection_endpoints",
+            table_names,
+        )
+        self.assertIn("sources", table_names)
 
 
 if __name__ == "__main__":

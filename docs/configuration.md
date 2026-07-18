@@ -37,6 +37,7 @@ Each feed currently contains:
 
 - display name;
 - stable source identifier;
+- stable collection-endpoint identifier;
 - source type;
 - feed URL;
 - language;
@@ -45,6 +46,11 @@ Each feed currently contains:
 If no explicit source identifier is configured, the display name is used as
 the initial identifier. An explicit identifier is required before a display
 name can be changed independently.
+
+If no explicit endpoint identifier is configured, Argus derives
+`rss:<source identifier>`. An explicit endpoint identifier is required when
+one source exposes more than one RSS feed or when endpoint identity must remain
+stable while its technical URL changes.
 
 The configuration objects and the `RSS_FEEDS` collection are immutable during
 application execution.
@@ -89,9 +95,11 @@ Before an RSS source is added:
 2. the feed must contain at least one valid entry;
 3. article entries must provide a title and URL;
 4. the source language and country context must be recorded;
-5. the source identifier must match an existing source when several feeds belong to the same publisher;
-6. the source type must describe the origin, not its reliability;
-7. the source must use its own feed rather than an unattributed aggregation
+5. the source identifier must match an existing source when several feeds
+   belong to the same publisher;
+6. each distinct feed must have a stable endpoint identifier;
+7. the source type must describe the origin, not its reliability;
+8. the source must use its own feed rather than an unattributed aggregation
    proxy.
 
 Network availability is verified manually because unit tests must not depend on

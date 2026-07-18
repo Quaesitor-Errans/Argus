@@ -22,6 +22,7 @@ class RSSFeedConfig:
     language: str
     country: str
     source_identifier: str | None = None
+    endpoint_identifier: str | None = None
     source_type: SourceType = SourceType.NEWS_MEDIA
 
     @property
@@ -29,6 +30,15 @@ class RSSFeedConfig:
         """Return the stable source identifier used for persistence."""
 
         return self.source_identifier or self.name
+
+    @property
+    def effective_endpoint_identifier(self) -> str:
+        """Return the stable identifier of this collection endpoint."""
+
+        return (
+            self.endpoint_identifier
+            or f"rss:{self.effective_source_identifier}"
+        )
 
 
 RSS_FEEDS: tuple[RSSFeedConfig, ...] = (

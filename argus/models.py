@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum as SQLAlchemyEnum,
     Float,
@@ -14,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from argus.database import Base
+from argus.endpoints import EndpointType
 
 from argus.processing import (
     ProcessingStage,
@@ -26,6 +28,7 @@ def utc_now() -> datetime:
     """Return the current timezone-aware UTC datetime."""
 
     return datetime.now(timezone.utc)
+
 
 class Source(Base):
     __tablename__ = "sources"
@@ -81,6 +84,94 @@ class Source(Base):
         default=utc_now,
         nullable=False,
     )
+
+
+class CollectionEndpoint(Base):
+    __tablename__ = "collection_endpoints"
+    __table_args__ = (
+        UniqueConstraint(
+            "connector_id",
+            "url",
+            name="uq_collection_endpoint_connector_url",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    identifier: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "sources.id",
+            name=(
+                "fk_collection_endpoints_source_id_sources"
+            ),
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    endpoint_type: Mapped[EndpointType] = mapped_column(
+        SQLAlchemyEnum(
+            EndpointType,
+            name="endpoint_type",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    connector_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    url: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    language: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        index=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+
 
 class Article(Base):
     __tablename__ = "articles"
