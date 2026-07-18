@@ -2,12 +2,19 @@ from argus.acquisition import (
     AcquisitionMode,
     DiscoveryRequest,
 )
-from argus.collector.rss_connector import RSSConnector
+from argus.collector.rss_connector import (
+    RSS_CONNECTOR_ID,
+    RSSConnector,
+)
 from argus.config import RSS_FEEDS
 from argus.database import session_manager
+from argus.endpoints import EndpointType
 from argus.logging.logger import get_logger
 from argus.models import Article
 from argus.storage.article_repository import ArticleRepository
+from argus.storage.endpoint_repository import (
+    CollectionEndpointRepository,
+)
 from argus.storage.source_repository import SourceRepository
 
 logger = get_logger(__name__)
@@ -24,6 +31,9 @@ def collect_articles() -> None:
         repository = ArticleRepository(session)
 
         source_repository = SourceRepository(session)
+        endpoint_repository = CollectionEndpointRepository(
+            session
+        )
 
         for feed in RSS_FEEDS:
             logger.info(
@@ -32,12 +42,34 @@ def collect_articles() -> None:
             )
 
             try:
+                source = source_repository.get_or_create(
+                    identifier=(
+                        feed.effective_source_identifier
+                    ),
+                    name=feed.name,
+                    source_type=feed.source_type,
+                    primary_jurisdiction=feed.country,
+                    default_language=feed.language,
+                )
+                endpoint_repository.get_or_create(
+                    identifier=(
+                        feed.effective_endpoint_identifier
+                    ),
+                    endpoint_type=EndpointType.RSS,
+                    connector_id=RSS_CONNECTOR_ID,
+                    url=feed.url,
+                    source_id=source.id,
+                    language=feed.language,
+                )
+                session.commit()
+
                 connector = RSSConnector(feed)
                 candidates = connector.discover(
                     discovery_request
                 )
 
             except Exception:
+                session.rollback()
                 failed_feeds_count += 1
 
                 logger.exception(
@@ -47,17 +79,6 @@ def collect_articles() -> None:
                 continue
 
             collected_from_feed = 0
-
-            source = source_repository.get_or_create(
-                identifier=(
-                    feed.effective_source_identifier
-                ),
-                name=feed.name,
-                source_type=feed.source_type,
-                primary_jurisdiction=feed.country,
-                default_language=feed.language,
-            )
-            session.commit()
 
             for candidate in candidates:
                 title = candidate.title

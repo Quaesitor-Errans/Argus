@@ -29,6 +29,11 @@ RSS discovery is performed through the protocol-independent acquisition
 contracts. `RSSConnector` converts feed entries into immutable
 `CandidateRecord` objects before the collection service creates articles.
 
+Each configured RSS feed is also persisted as a `CollectionEndpoint`. The
+endpoint records the stable endpoint identity, connector, protocol type, URL,
+language and optional source relationship. Endpoint metadata describes how
+Argus reaches documents; it does not describe who published them.
+
 The legacy `fetch_rss_entries()` adapter remains available during the
 incremental transition, but the collection service no longer depends on its
 RSS-specific dictionary representation.
@@ -44,6 +49,21 @@ identifier.
 
 Several collection endpoints belonging to the same publisher should use the
 same explicit source identifier.
+
+## Collection endpoint identity
+
+`CollectionEndpoint.identifier` is the stable machine-facing identity of one
+acquisition location. RSS configuration may provide it explicitly. Otherwise,
+Argus derives the initial value from the stable source identifier.
+
+The collection service registers the source and endpoint before discovery.
+This preserves the configured acquisition inventory even when the remote feed
+is temporarily unavailable. A conflicting stable identifier is rejected
+instead of silently changing the stored endpoint location.
+
+The current endpoint record is configuration metadata, not a retrieval log.
+Connector versions, response details, content hashes and acquisition outcomes
+belong to future versioned retrieval-attempt records.
 
 The current `SourceType` vocabulary includes:
 
@@ -93,7 +113,7 @@ verified.
 
 The current implementation does not yet persist:
 
-- collection endpoints as independent records;
+- retrieval attempts and their outcomes;
 - time-versioned source profiles;
 - ownership history;
 - source aliases;
