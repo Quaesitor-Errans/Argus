@@ -142,6 +142,16 @@ It should contain:
 - access and license metadata;
 - errors and warnings.
 
+The initial persisted `RetrievalAttempt` model records normalized connector,
+candidate and response metadata. It may reference a legacy `Article` during
+the incremental transition, but this reference is optional because not every
+retrieved artifact is a news article.
+
+Retrieved bytes are deliberately excluded from this table. A successful
+attempt records their SHA-256 hash; the unchanged bytes will be owned by the
+separate raw-artifact layer. Multiple attempts for the same location are
+preserved rather than updated in place.
+
 ### Raw artifact
 
 The unchanged bytes received by Argus.

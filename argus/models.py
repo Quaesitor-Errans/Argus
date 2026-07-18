@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -14,6 +15,7 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import Mapped, mapped_column
 
+from argus.acquisition.contracts import RetrievalOutcome
 from argus.database import Base
 from argus.endpoints import EndpointType
 
@@ -23,6 +25,7 @@ from argus.processing import (
 )
 
 from argus.sources import SourceType
+
 
 def utc_now() -> datetime:
     """Return the current timezone-aware UTC datetime."""
@@ -169,6 +172,132 @@ class CollectionEndpoint(Base):
         DateTime,
         default=utc_now,
         onupdate=utc_now,
+        nullable=False,
+    )
+
+
+class RetrievalAttempt(Base):
+    __tablename__ = "retrieval_attempts"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    endpoint_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "collection_endpoints.id",
+            name=(
+                "fk_retrieval_attempts_endpoint_id_"
+                "collection_endpoints"
+            ),
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    article_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "articles.id",
+            name="fk_retrieval_attempts_article_id_articles",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    connector_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    connector_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    requested_location: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    external_identifier: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+
+    discovered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    retrieved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    outcome: Mapped[RetrievalOutcome] = mapped_column(
+        SQLAlchemyEnum(
+            RetrievalOutcome,
+            name="retrieval_outcome",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    resolved_location: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+
+    response_status: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    content_type: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    content_hash: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        index=True,
+    )
+
+    hash_algorithm: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    warnings: Mapped[list[str]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+
+    request_metadata: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
         nullable=False,
     )
 

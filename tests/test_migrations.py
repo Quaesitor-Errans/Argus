@@ -19,6 +19,7 @@ EXPECTED_TABLES = {
     "collection_endpoints",
     "discourse_analysis_results",
     "processing_states",
+    "retrieval_attempts",
     "sources",
 }
 
@@ -254,6 +255,46 @@ class MigrationIntegrationTests(unittest.TestCase):
             table_names,
         )
         self.assertIn("sources", table_names)
+
+    def test_retrieval_migration_downgrades_to_endpoint_schema(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "retrieval_downgrade_test.db"
+            )
+            database_url = (
+                f"sqlite:///{database_path.as_posix()}"
+            )
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(
+                    config,
+                    "85db1d6a8b3a",
+                )
+
+            test_engine = create_engine(database_url)
+
+            try:
+                table_names = set(
+                    inspect(test_engine).get_table_names()
+                )
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn(
+            "retrieval_attempts",
+            table_names,
+        )
+        self.assertIn(
+            "collection_endpoints",
+            table_names,
+        )
 
 
 if __name__ == "__main__":
