@@ -9,6 +9,7 @@
 
 # Database
 data/database/
+data/raw_artifacts/
 *.db
 
 # Logs

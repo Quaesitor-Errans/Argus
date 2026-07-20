@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum as SQLAlchemyEnum,
     Float,
@@ -176,6 +178,63 @@ class CollectionEndpoint(Base):
     )
 
 
+class RawArtifact(Base):
+    __tablename__ = "raw_artifacts"
+    __table_args__ = (
+        CheckConstraint(
+            "byte_size >= 0",
+            name="ck_raw_artifacts_byte_size_non_negative",
+        ),
+        UniqueConstraint(
+            "hash_algorithm",
+            "content_hash",
+            name="uq_raw_artifact_digest",
+        ),
+        UniqueConstraint(
+            "storage_backend",
+            "storage_key",
+            name="uq_raw_artifact_storage_location",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    hash_algorithm: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    content_hash: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+    )
+
+    byte_size: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+    )
+
+    storage_backend: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    storage_key: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
+
+
 class RetrievalAttempt(Base):
     __tablename__ = "retrieval_attempts"
 
@@ -200,6 +259,18 @@ class RetrievalAttempt(Base):
         ForeignKey(
             "articles.id",
             name="fk_retrieval_attempts_article_id_articles",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    raw_artifact_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "raw_artifacts.id",
+            name=(
+                "fk_retrieval_attempts_raw_artifact_id_"
+                "raw_artifacts"
+            ),
         ),
         nullable=True,
         index=True,

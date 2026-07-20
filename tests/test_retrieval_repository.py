@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+from hashlib import sha256
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ from argus.database import Base
 from argus.endpoints import EndpointType
 from argus.models import (
     CollectionEndpoint,
+    RawArtifact,
     RetrievalAttempt,
 )
 from argus.storage.retrieval_repository import (
@@ -63,6 +65,8 @@ class RetrievalAttemptRepositoryTests(unittest.TestCase):
     def test_record_result_persists_success_without_commit(
         self,
     ) -> None:
+        content = b"retrieved content"
+        content_hash = sha256(content).hexdigest()
         result = RetrievalResult(
             candidate=self.candidate,
             outcome=RetrievalOutcome.SUCCEEDED,
@@ -72,13 +76,26 @@ class RetrievalAttemptRepositoryTests(unittest.TestCase):
             ),
             response_status="200",
             content_type="text/html; charset=utf-8",
-            content=b"retrieved content",
+            content=content,
             warnings=("Example warning",),
         )
+        raw_artifact = RawArtifact(
+            hash_algorithm="sha256",
+            content_hash=content_hash,
+            byte_size=len(content),
+            storage_backend="filesystem",
+            storage_key=(
+                f"sha256/{content_hash[:2]}/"
+                f"{content_hash[2:]}"
+            ),
+        )
+        self.session.add(raw_artifact)
+        self.session.flush()
 
         attempt = self.repository.record_result(
             endpoint=self.endpoint,
             result=result,
+            raw_artifact=raw_artifact,
             request_metadata={
                 "timeout_seconds": 30,
                 "follow_redirects": True,
@@ -87,6 +104,10 @@ class RetrievalAttemptRepositoryTests(unittest.TestCase):
 
         self.assertIsNotNone(attempt.id)
         self.assertEqual(attempt.endpoint_id, self.endpoint.id)
+        self.assertEqual(
+            attempt.raw_artifact_id,
+            raw_artifact.id,
+        )
         self.assertEqual(attempt.connector_id, "rss")
         self.assertEqual(attempt.connector_version, "1.0.0")
         self.assertEqual(
@@ -142,6 +163,83 @@ class RetrievalAttemptRepositoryTests(unittest.TestCase):
         self.assertIsNone(attempt.content_hash)
         self.assertIsNone(attempt.hash_algorithm)
         self.assertEqual(attempt.warnings, [])
+
+    def test_successful_result_requires_persisted_artifact(
+        self,
+    ) -> None:
+        result = RetrievalResult(
+            candidate=self.candidate,
+            outcome=RetrievalOutcome.SUCCEEDED,
+            retrieved_at=self.timestamp,
+            content=b"retrieved content",
+        )
+
+        with self.assertRaisesRegex(
+            RetrievalProvenanceConflict,
+            "requires a persisted raw artifact",
+        ):
+            self.repository.record_result(
+                endpoint=self.endpoint,
+                result=result,
+            )
+
+    def test_successful_result_rejects_artifact_mismatch(
+        self,
+    ) -> None:
+        content = b"retrieved content"
+        result = RetrievalResult(
+            candidate=self.candidate,
+            outcome=RetrievalOutcome.SUCCEEDED,
+            retrieved_at=self.timestamp,
+            content=content,
+        )
+        raw_artifact = RawArtifact(
+            hash_algorithm="sha256",
+            content_hash="00" * 32,
+            byte_size=len(content),
+            storage_backend="filesystem",
+            storage_key=f"sha256/00/{'00' * 31}",
+        )
+        self.session.add(raw_artifact)
+        self.session.flush()
+
+        with self.assertRaisesRegex(
+            RetrievalProvenanceConflict,
+            "does not match retrieved content",
+        ):
+            self.repository.record_result(
+                endpoint=self.endpoint,
+                result=result,
+                raw_artifact=raw_artifact,
+            )
+
+    def test_unsuccessful_result_rejects_artifact(
+        self,
+    ) -> None:
+        result = RetrievalResult(
+            candidate=self.candidate,
+            outcome=RetrievalOutcome.UNAVAILABLE,
+            retrieved_at=self.timestamp,
+        )
+        raw_artifact = RawArtifact(
+            hash_algorithm="sha256",
+            content_hash="00" * 32,
+            byte_size=0,
+            storage_backend="filesystem",
+            storage_key=f"sha256/00/{'00' * 31}",
+        )
+        self.session.add(raw_artifact)
+        self.session.flush()
+
+        with self.assertRaisesRegex(
+            RetrievalProvenanceConflict,
+            "must not reference a raw artifact",
+        ):
+            self.repository.record_result(
+                endpoint=self.endpoint,
+                result=result,
+                raw_artifact=raw_artifact,
+            )
 
     def test_record_result_allows_repeated_attempts(
         self,

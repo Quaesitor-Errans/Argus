@@ -16,6 +16,7 @@ Configured paths include:
 - data directory;
 - database directory;
 - SQLite database file;
+- raw-artifact directory;
 - logging directory;
 - application log file;
 - Alembic configuration file.
@@ -24,6 +25,11 @@ The modules responsible for using a path are also responsible for creating its
 parent directory.
 
 Importing configuration alone must not create files or directories.
+
+Raw acquisition responses are stored beneath `data/raw_artifacts` by their
+SHA-256 content address. The artifact store creates directories only when
+bytes are written. Absolute filesystem paths are not persisted as artifact
+identities.
 
 Database schema management is described in
 [Database Migrations](database_migrations.md).

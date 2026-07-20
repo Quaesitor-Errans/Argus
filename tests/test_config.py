@@ -7,6 +7,7 @@ from argus.config import (
     DATABASE_PATH,
     LOG_FILE,
     PROJECT_ROOT,
+    RAW_ARTIFACT_DIRECTORY,
     RSS_FEEDS,
     RSSFeedConfig,
 )
@@ -23,6 +24,10 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(
             LOG_FILE,
             PROJECT_ROOT / "logs" / "argus.log",
+            )
+        self.assertEqual(
+            RAW_ARTIFACT_DIRECTORY,
+            PROJECT_ROOT / "data" / "raw_artifacts",
             )
 
     def test_rss_feeds_are_stored_as_tuple(self) -> None:

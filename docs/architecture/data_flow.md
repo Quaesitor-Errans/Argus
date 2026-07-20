@@ -160,6 +160,17 @@ Examples include HTML, PDF, XML, JSON, CSV, images, audio, and video.
 
 Raw artifacts receive a content hash and must not be silently rewritten.
 
+The initial local artifact store uses SHA-256 content-addressed filesystem
+paths. Repeated storage of identical bytes is idempotent, and every read
+verifies the bytes against the address. SQL storage records only portable
+backend and storage-key metadata, never an installation-specific absolute
+path. Alternative object-storage backends may implement the same contract.
+
+`RawArtifact` stores the digest algorithm, digest, byte size and portable
+storage location. The digest and storage location are independently unique.
+A successful `RetrievalAttempt` must reference a matching raw artifact;
+failed, unavailable or restricted attempts must not reference artifact bytes.
+
 ### Document
 
 A logical attributable information object, such as an article, report, law,

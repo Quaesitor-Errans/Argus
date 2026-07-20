@@ -2,9 +2,13 @@ from collections.abc import Mapping
 
 from sqlalchemy.orm import Session
 
-from argus.acquisition import RetrievalResult
+from argus.acquisition import (
+    RetrievalOutcome,
+    RetrievalResult,
+)
 from argus.models import (
     CollectionEndpoint,
+    RawArtifact,
     RetrievalAttempt,
 )
 from argus.storage.base_repository import BaseRepository
@@ -29,6 +33,7 @@ class RetrievalAttemptRepository(
         endpoint: CollectionEndpoint,
         result: RetrievalResult,
         article_id: int | None = None,
+        raw_artifact: RawArtifact | None = None,
         request_metadata: Mapping[str, object] | None = None,
     ) -> RetrievalAttempt:
         if endpoint.id is None:
@@ -45,9 +50,20 @@ class RetrievalAttemptRepository(
             )
 
         content_hash = result.content_hash
+
+        self._validate_raw_artifact(
+            result=result,
+            raw_artifact=raw_artifact,
+        )
+
         attempt = RetrievalAttempt(
             endpoint_id=endpoint.id,
             article_id=article_id,
+            raw_artifact_id=(
+                raw_artifact.id
+                if raw_artifact is not None
+                else None
+            ),
             connector_id=candidate.connector_id,
             connector_version=candidate.connector_version,
             requested_location=candidate.location,
@@ -77,3 +93,33 @@ class RetrievalAttemptRepository(
         self.flush()
 
         return attempt
+
+    @staticmethod
+    def _validate_raw_artifact(
+        *,
+        result: RetrievalResult,
+        raw_artifact: RawArtifact | None,
+    ) -> None:
+        if result.outcome is RetrievalOutcome.SUCCEEDED:
+            if raw_artifact is None or raw_artifact.id is None:
+                raise RetrievalProvenanceConflict(
+                    "Successful retrieval requires a persisted "
+                    "raw artifact."
+                )
+
+            if (
+                raw_artifact.hash_algorithm != "sha256"
+                or raw_artifact.content_hash
+                != result.content_hash
+                or raw_artifact.byte_size
+                != len(result.content or b"")
+            ):
+                raise RetrievalProvenanceConflict(
+                    "Raw artifact does not match retrieved content."
+                )
+
+        elif raw_artifact is not None:
+            raise RetrievalProvenanceConflict(
+                "Unsuccessful retrieval must not reference a raw "
+                "artifact."
+            )
