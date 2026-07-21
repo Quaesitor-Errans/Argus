@@ -7,6 +7,7 @@ from argus.acquisition import (
     RetrievalResult,
 )
 from argus.models import (
+    AcquisitionCandidate,
     CollectionEndpoint,
     RawArtifact,
     RetrievalAttempt,
@@ -33,6 +34,7 @@ class RetrievalAttemptRepository(
         endpoint: CollectionEndpoint,
         result: RetrievalResult,
         article_id: int | None = None,
+        stored_candidate: AcquisitionCandidate | None = None,
         raw_artifact: RawArtifact | None = None,
         request_metadata: Mapping[str, object] | None = None,
     ) -> RetrievalAttempt:
@@ -55,6 +57,12 @@ class RetrievalAttemptRepository(
             result=result,
             raw_artifact=raw_artifact,
         )
+        self._validate_candidate_link(
+            endpoint=endpoint,
+            result=result,
+            stored_candidate=stored_candidate,
+            article_id=article_id,
+        )
 
         attempt = RetrievalAttempt(
             endpoint_id=endpoint.id,
@@ -62,6 +70,11 @@ class RetrievalAttemptRepository(
             raw_artifact_id=(
                 raw_artifact.id
                 if raw_artifact is not None
+                else None
+            ),
+            candidate_id=(
+                stored_candidate.id
+                if stored_candidate is not None
                 else None
             ),
             connector_id=candidate.connector_id,
@@ -95,6 +108,44 @@ class RetrievalAttemptRepository(
         return attempt
 
     @staticmethod
+    def _validate_candidate_link(
+        *,
+        endpoint: CollectionEndpoint,
+        result: RetrievalResult,
+        stored_candidate: AcquisitionCandidate | None,
+        article_id: int | None,
+    ) -> None:
+        if stored_candidate is None:
+            return
+
+        if stored_candidate.id is None:
+            raise RetrievalProvenanceConflict(
+                "Acquisition candidate must be persisted before "
+                "retrieval is recorded."
+            )
+
+        if stored_candidate.endpoint_id != endpoint.id:
+            raise RetrievalProvenanceConflict(
+                "Acquisition candidate belongs to another endpoint."
+            )
+
+        if stored_candidate.fingerprint != result.candidate.fingerprint:
+            raise RetrievalProvenanceConflict(
+                "Retrieval result does not match the acquisition "
+                "candidate fingerprint."
+            )
+
+        if (
+            stored_candidate.article_id is not None
+            and article_id is not None
+            and stored_candidate.article_id != article_id
+        ):
+            raise RetrievalProvenanceConflict(
+                "Retrieval article does not match the acquisition "
+                "candidate article."
+            )
+
+    @staticmethod
     def _validate_raw_artifact(
         *,
         result: RetrievalResult,
@@ -109,10 +160,8 @@ class RetrievalAttemptRepository(
 
             if (
                 raw_artifact.hash_algorithm != "sha256"
-                or raw_artifact.content_hash
-                != result.content_hash
-                or raw_artifact.byte_size
-                != len(result.content or b"")
+                or raw_artifact.content_hash != result.content_hash
+                or raw_artifact.byte_size != len(result.content or b"")
             ):
                 raise RetrievalProvenanceConflict(
                     "Raw artifact does not match retrieved content."

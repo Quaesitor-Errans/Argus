@@ -124,6 +124,14 @@ accepted.
 It may contain an external identifier, title, location, source hint, media
 type, date, language, and discovery provenance.
 
+The initial persisted `AcquisitionCandidate` is an immutable snapshot of
+normalized discovery metadata. Its deterministic fingerprint excludes the
+poll time: an identical rediscovery updates first-seen, last-seen and count
+fields, while a changed title, location, date, language or connector version
+creates a distinct snapshot. A candidate may reference a legacy `Article`,
+but the reference is optional because many supported artifact types are not
+news articles.
+
 ### Retrieval record
 
 A record of one acquisition attempt.
@@ -146,6 +154,11 @@ The initial persisted `RetrievalAttempt` model records normalized connector,
 candidate and response metadata. It may reference a legacy `Article` during
 the incremental transition, but this reference is optional because not every
 retrieved artifact is a news article.
+
+New retrieval attempts may also reference the exact persisted acquisition
+candidate. Candidate fields remain copied into the attempt as an immutable
+audit snapshot and for compatibility with attempts recorded before candidate
+persistence was introduced.
 
 Retrieved bytes are deliberately excluded from this table. A successful
 attempt records their SHA-256 hash; the unchanged bytes will be owned by the
@@ -170,6 +183,16 @@ path. Alternative object-storage backends may implement the same contract.
 storage location. The digest and storage location are independently unique.
 A successful `RetrievalAttempt` must reference a matching raw artifact;
 failed, unavailable or restricted attempts must not reference artifact bytes.
+
+The initial `RetrievalService` is the application boundary joining these
+components. It reconstructs the normalized contract from one persisted
+candidate snapshot, invokes the matching connector, stores successful response
+bytes through the raw-artifact store, registers their portable metadata and
+records every normalized retrieval outcome. It never commits implicitly;
+database transaction ownership remains with its caller. Because filesystem
+artifacts are immutable and content-addressed, a database rollback after a
+successful file write may leave an unreferenced artifact that is safe to reuse
+or garbage-collect later.
 
 ### Document
 
