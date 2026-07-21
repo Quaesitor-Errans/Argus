@@ -199,12 +199,29 @@ or garbage-collect later.
 A logical attributable information object, such as an article, report, law,
 speech, scientific work, or historical record.
 
+The initial `Document` model separates this logical identity from both a
+discovery candidate and any particular set of retrieved bytes. Its stable
+identity is the pair `identifier_scheme` and `identifier_value`, allowing
+identifiers such as a URI, DOI, legislation identifier or an Argus-owned
+identifier without assuming that every document is a news article. Source,
+type, preferred title and language are document-level metadata. Existing
+`Article` rows remain unchanged during the incremental transition.
+
 ### Document version
 
 A specific state of a document at a particular time.
 
 A new retrieval with different content does not silently overwrite the
 previous version.
+
+The initial `DocumentVersion` links one document to one immutable
+`RawArtifact`. A repeated registration of the same artifact is idempotent;
+different bytes receive increasing version numbers within that document.
+Media type and publication time describe the exact version and are checked
+for conflicts when an existing version is encountered. Creating documents
+from candidates and attaching retrieval attempts to versions belongs to the
+next application-service boundary; the repository layer does not guess
+document identity.
 
 ### Derived artifact
 
@@ -322,7 +339,7 @@ The transition will proceed as follows:
 2. adapt RSS collection to those contracts;
 3. introduce collection endpoints and retrieval records;
 4. introduce raw-artifact storage;
-5. define documents and document versions;
+5. define documents and document versions (current);
 6. migrate existing articles into the document model;
 7. add one scholarly connector;
 8. add one statistical connector;

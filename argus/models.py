@@ -1,5 +1,3 @@
-"""SQLAlchemy models including persistent acquisition candidates."""
-
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -21,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from argus.acquisition.contracts import RetrievalOutcome
 from argus.database import Base
+from argus.documents import DocumentType
 from argus.endpoints import EndpointType
 
 from argus.processing import (
@@ -228,6 +227,152 @@ class RawArtifact(Base):
     storage_key: Mapped[str] = mapped_column(
         String(2048),
         nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "identifier_scheme",
+            "identifier_value",
+            name="uq_document_stable_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "sources.id",
+            name="fk_documents_source_id_sources",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    document_type: Mapped[DocumentType] = mapped_column(
+        SQLAlchemyEnum(
+            DocumentType,
+            name="document_type",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value
+                for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    identifier_scheme: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    identifier_value: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    language: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+
+
+class DocumentVersion(Base):
+    __tablename__ = "document_versions"
+    __table_args__ = (
+        CheckConstraint(
+            "version_number >= 1",
+            name="ck_document_versions_number_positive",
+        ),
+        UniqueConstraint(
+            "document_id",
+            "version_number",
+            name="uq_document_version_number",
+        ),
+        UniqueConstraint(
+            "document_id",
+            "raw_artifact_id",
+            name="uq_document_version_artifact",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "documents.id",
+            name=(
+                "fk_document_versions_document_id_documents"
+            ),
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    raw_artifact_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "raw_artifacts.id",
+            name=(
+                "fk_document_versions_raw_artifact_id_"
+                "raw_artifacts"
+            ),
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    version_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    media_type: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

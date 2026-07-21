@@ -18,6 +18,8 @@ EXPECTED_TABLES = {
     "analysis_evidence",
     "articles",
     "collection_endpoints",
+    "document_versions",
+    "documents",
     "discourse_analysis_results",
     "processing_states",
     "raw_artifacts",
@@ -344,34 +346,27 @@ class MigrationIntegrationTests(unittest.TestCase):
         )
 
     def test_candidate_migration_downgrades_to_artifact_schema(
-        self,
+            self,
     ) -> None:
         with TemporaryDirectory() as temporary_directory:
             database_path = (
                 Path(temporary_directory) / "candidate_downgrade_test.db"
             )
-            database_url = (
-                f"sqlite:///{database_path.as_posix()}"
-            )
+            database_url = f"sqlite:///{database_path.as_posix()}"
             config = Config(str(ALEMBIC_CONFIG_PATH))
 
             with patch.dict(
                 os.environ,
                 {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
             ):
-                command.upgrade(config, "head")
-                command.downgrade(
-                    config,
-                    "cb3e06323fb8",
-                )
+                command.upgrade(config, "b22c36e940db")
+                command.downgrade(config, "cb3e06323fb8")
 
             test_engine = create_engine(database_url)
 
             try:
                 inspector = inspect(test_engine)
-                table_names = set(
-                    inspector.get_table_names()
-                )
+                table_names = set(inspector.get_table_names())
                 retrieval_columns = {
                     column["name"]
                     for column in inspector.get_columns(
@@ -385,12 +380,38 @@ class MigrationIntegrationTests(unittest.TestCase):
             "acquisition_candidates",
             table_names,
         )
-        self.assertIn("retrieval_attempts", table_names)
+        self.assertNotIn("candidate_id", retrieval_columns)
         self.assertIn("raw_artifacts", table_names)
-        self.assertNotIn(
-            "candidate_id",
-            retrieval_columns,
-        )
+
+    def test_document_migration_downgrades_to_candidate_schema(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "document_downgrade_test.db"
+            )
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(config, "b22c36e940db")
+
+            test_engine = create_engine(database_url)
+
+            try:
+                table_names = set(
+                    inspect(test_engine).get_table_names()
+                )
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn("documents", table_names)
+        self.assertNotIn("document_versions", table_names)
+        self.assertIn("acquisition_candidates", table_names)
 
 
 if __name__ == "__main__":
