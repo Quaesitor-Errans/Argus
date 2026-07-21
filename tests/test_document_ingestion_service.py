@@ -14,6 +14,7 @@ from argus.documents import (
 from argus.endpoints import EndpointType
 from argus.models import (
     AcquisitionCandidate,
+    Article,
     CollectionEndpoint,
     Document,
     DocumentVersion,
@@ -256,6 +257,96 @@ class DocumentIngestionServiceTests(unittest.TestCase):
             ),
             1,
         )
+
+    def test_ingest_reuses_legacy_article_document(self) -> None:
+        legacy_document = Document(
+            source_id=self.source.id,
+            document_type=DocumentType.ARTICLE,
+            identifier_scheme="uri",
+            identifier_value=self.candidate.location,
+            title="Example article",
+            language="en",
+        )
+        self.session.add(legacy_document)
+        self.session.flush()
+        article = Article(
+            document_id=legacy_document.id,
+            source_id=self.source.id,
+            url=self.candidate.location,
+            title="Example article",
+            language="en",
+        )
+        self.session.add(article)
+        self.session.flush()
+        self.candidate.article_id = article.id
+        self.session.flush()
+
+        result = self.service.ingest_retrieval(
+            attempt=self.attempt,
+            candidate=self.candidate,
+            document_type=DocumentType.ARTICLE,
+        )
+
+        self.assertEqual(result.document.id, legacy_document.id)
+        self.assertEqual(result.document.identifier_scheme, "uri")
+        self.assertEqual(
+            self.session.scalar(
+                select(func.count()).select_from(Document)
+            ),
+            1,
+        )
+
+    def test_rejects_legacy_article_location_mismatch(self) -> None:
+        article = Article(
+            source_id=self.source.id,
+            url="https://example.com/another-article",
+            title="Another article",
+        )
+        self.session.add(article)
+        self.session.flush()
+        self.candidate.article_id = article.id
+        self.session.flush()
+
+        with self.assertRaisesRegex(
+            DocumentIngestionConflict,
+            "location",
+        ):
+            self.service.ingest_retrieval(
+                attempt=self.attempt,
+                candidate=self.candidate,
+                document_type=DocumentType.ARTICLE,
+            )
+
+    def test_rejects_invalid_legacy_document_link(self) -> None:
+        other_document = Document(
+            source_id=self.source.id,
+            document_type=DocumentType.ARTICLE,
+            identifier_scheme="uri",
+            identifier_value="https://example.com/other-document",
+            title="Other document",
+        )
+        self.session.add(other_document)
+        self.session.flush()
+        article = Article(
+            document_id=other_document.id,
+            source_id=self.source.id,
+            url=self.candidate.location,
+            title="Example article",
+        )
+        self.session.add(article)
+        self.session.flush()
+        self.candidate.article_id = article.id
+        self.session.flush()
+
+        with self.assertRaisesRegex(
+            DocumentIngestionConflict,
+            "document identity",
+        ):
+            self.service.ingest_retrieval(
+                attempt=self.attempt,
+                candidate=self.candidate,
+                document_type=DocumentType.ARTICLE,
+            )
 
     def test_changed_bytes_create_next_version(self) -> None:
         first = self.service.ingest_retrieval(

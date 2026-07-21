@@ -451,6 +451,121 @@ class MigrationIntegrationTests(unittest.TestCase):
         self.assertIn("documents", table_names)
         self.assertIn("document_versions", table_names)
 
+    def test_legacy_article_migration_backfills_document_link(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "article_document_test.db"
+            )
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "c91d6e8f42a7")
+                legacy_engine = create_engine(database_url)
+
+                try:
+                    with legacy_engine.begin() as connection:
+                        connection.execute(
+                            text(
+                                """
+                                INSERT INTO articles (
+                                    url,
+                                    title,
+                                    source,
+                                    language,
+                                    fetched_at
+                                ) VALUES (
+                                    :url,
+                                    :title,
+                                    :source,
+                                    :language,
+                                    CURRENT_TIMESTAMP
+                                )
+                                """
+                            ),
+                            {
+                                "url": "https://example.com/legacy-doc",
+                                "title": "Legacy document",
+                                "source": "Legacy News",
+                                "language": "en",
+                            },
+                        )
+                finally:
+                    legacy_engine.dispose()
+
+                command.upgrade(config, "head")
+
+            result_engine = create_engine(database_url)
+
+            try:
+                with result_engine.connect() as connection:
+                    row = connection.execute(
+                        text(
+                            """
+                            SELECT
+                                articles.document_id,
+                                documents.identifier_scheme,
+                                documents.identifier_value,
+                                documents.document_type,
+                                documents.title,
+                                documents.language
+                            FROM articles
+                            JOIN documents
+                              ON documents.id = articles.document_id
+                            WHERE articles.url = :url
+                            """
+                        ),
+                        {"url": "https://example.com/legacy-doc"},
+                    ).mappings().one()
+            finally:
+                result_engine.dispose()
+
+        self.assertIsNotNone(row["document_id"])
+        self.assertEqual(row["identifier_scheme"], "uri")
+        self.assertEqual(
+            row["identifier_value"],
+            "https://example.com/legacy-doc",
+        )
+        self.assertEqual(row["document_type"], "article")
+        self.assertEqual(row["title"], "Legacy document")
+        self.assertEqual(row["language"], "en")
+
+    def test_legacy_article_link_downgrades_to_ingestion_schema(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "article_link_down.db"
+            )
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(config, "c91d6e8f42a7")
+
+            test_engine = create_engine(database_url)
+
+            try:
+                article_columns = {
+                    column["name"]
+                    for column in inspect(test_engine).get_columns(
+                        "articles"
+                    )
+                }
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn("document_id", article_columns)
+
 
 if __name__ == "__main__":
     unittest.main()

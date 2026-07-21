@@ -17,6 +17,7 @@ from argus.models import (
     AcquisitionCandidate,
     Article,
     CollectionEndpoint,
+    Document,
     Source,
 )
 from argus.services.collection_service import collect_articles
@@ -108,6 +109,7 @@ class CollectionServiceTests(unittest.TestCase):
             article = session.scalar(
                 select(Article)
             )
+            document = session.scalar(select(Document))
             stored_candidate = session.scalar(
                 select(AcquisitionCandidate)
             )
@@ -115,6 +117,7 @@ class CollectionServiceTests(unittest.TestCase):
             self.assertIsNotNone(source)
             self.assertIsNotNone(endpoint)
             self.assertIsNotNone(article)
+            self.assertIsNotNone(document)
             self.assertIsNotNone(stored_candidate)
 
             self.assertEqual(
@@ -163,6 +166,12 @@ class CollectionServiceTests(unittest.TestCase):
             self.assertEqual(
                 article.source_id,
                 source.id,
+            )
+            self.assertEqual(article.document_id, document.id)
+            self.assertEqual(document.identifier_scheme, "uri")
+            self.assertEqual(
+                document.identifier_value,
+                "https://example.com/article",
             )
             self.assertEqual(
                 article.source,
@@ -239,7 +248,7 @@ class CollectionServiceTests(unittest.TestCase):
             )
 
     def test_collection_records_repeated_discovery(
-        self,
+            self,
     ) -> None:
         feed = RSSFeedConfig(
             name="Example News",
@@ -288,11 +297,15 @@ class CollectionServiceTests(unittest.TestCase):
             article_count = session.scalar(
                 select(func.count()).select_from(Article)
             )
+            document_count = session.scalar(
+                select(func.count()).select_from(Document)
+            )
             candidates = session.scalars(
                 select(AcquisitionCandidate)
             ).all()
 
             self.assertEqual(article_count, 1)
+            self.assertEqual(document_count, 1)
             self.assertEqual(len(candidates), 1)
             self.assertEqual(
                 candidates[0].discovery_count,
@@ -300,7 +313,7 @@ class CollectionServiceTests(unittest.TestCase):
             )
 
     def test_collection_keeps_candidate_without_title(
-        self,
+            self,
     ) -> None:
         feed = RSSFeedConfig(
             name="Metadata Catalog",

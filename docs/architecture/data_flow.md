@@ -231,6 +231,14 @@ type. Failed retrievals and inconsistent provenance are rejected before a
 document version is created. The repository layer itself still does not guess
 document identity.
 
+Legacy RSS `Article` rows are linked one-to-one to their logical `Document`
+through a nullable transition key. The migration backfills existing articles
+with URI-identified documents, and ongoing legacy collection creates the same
+link immediately. When a persisted candidate references a legacy article,
+document ingestion reuses that URI identity instead of creating a second
+connector-qualified document. The key remains nullable only for compatibility
+with databases and code paths that have not yet crossed this migration.
+
 ### Derived artifact
 
 A product created from a raw artifact.
@@ -347,8 +355,8 @@ The transition will proceed as follows:
 2. adapt RSS collection to those contracts;
 3. introduce collection endpoints and retrieval records;
 4. introduce raw-artifact storage;
-5. define documents and document versions (current);
-6. migrate existing articles into the document model;
+5. define documents and document versions;
+6. migrate existing articles into the document model (current);
 7. add one scholarly connector;
 8. add one statistical connector;
 9. add archive discovery;

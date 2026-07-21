@@ -8,6 +8,7 @@ from argus.collector.rss_connector import (
 )
 from argus.config import RSS_FEEDS
 from argus.database import session_manager
+from argus.documents import DocumentType
 from argus.endpoints import EndpointType
 from argus.logging.logger import get_logger
 from argus.models import Article
@@ -15,6 +16,7 @@ from argus.storage.article_repository import ArticleRepository
 from argus.storage.candidate_repository import (
     AcquisitionCandidateRepository,
 )
+from argus.storage.document_repository import DocumentRepository
 from argus.storage.endpoint_repository import (
     CollectionEndpointRepository,
 )
@@ -40,6 +42,7 @@ def collect_articles() -> None:
         candidate_repository = AcquisitionCandidateRepository(
             session
         )
+        document_repository = DocumentRepository(session)
 
         for feed in RSS_FEEDS:
             logger.info(
@@ -99,8 +102,18 @@ def collect_articles() -> None:
                 else:
                     article = repository.get_by_url(url)
 
+                    document = document_repository.get_or_create(
+                        identifier_scheme="uri",
+                        identifier_value=url,
+                        document_type=DocumentType.ARTICLE,
+                        source_id=source.id,
+                        title=title,
+                        language=candidate.language,
+                    )
+
                     if article is None:
                         article = Article(
+                            document_id=document.id,
                             url=url,
                             title=title,
                             source_id=source.id,
@@ -114,6 +127,14 @@ def collect_articles() -> None:
 
                         new_articles_count += 1
                         collected_from_feed += 1
+                    elif article.document_id is None:
+                        article.document_id = document.id
+                        session.flush()
+                    elif article.document_id != document.id:
+                        raise ValueError(
+                            "Legacy article is linked to another "
+                            "document."
+                        )
 
                 candidate_repository.get_or_create(
                     endpoint=endpoint,

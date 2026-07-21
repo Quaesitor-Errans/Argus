@@ -9,6 +9,7 @@ from argus.documents import (
 )
 from argus.models import (
     AcquisitionCandidate,
+    Article,
     CollectionEndpoint,
     Document,
     DocumentVersion,
@@ -53,16 +54,10 @@ class DocumentIngestionService:
             attempt=attempt,
             candidate=candidate,
         )
-        identifier_scheme, identifier_value = (
-            self._document_identity(candidate)
-        )
-        document = self._document_repository.get_or_create(
-            identifier_scheme=identifier_scheme,
-            identifier_value=identifier_value,
+        document = self._resolve_document(
+            candidate=candidate,
+            endpoint=endpoint,
             document_type=document_type,
-            source_id=endpoint.source_id,
-            title=candidate.title,
-            language=candidate.language,
         )
         version = self._version_repository.register(
             document=document,
@@ -158,6 +153,96 @@ class DocumentIngestionService:
             )
 
         return endpoint, raw_artifact
+
+    def _resolve_document(
+            self,
+            *,
+            candidate: AcquisitionCandidate,
+            endpoint: CollectionEndpoint,
+            document_type: DocumentType,
+    ) -> Document:
+        if candidate.article_id is None:
+            identifier_scheme, identifier_value = (
+                self._document_identity(candidate)
+            )
+            return self._document_repository.get_or_create(
+                identifier_scheme=identifier_scheme,
+                identifier_value=identifier_value,
+                document_type=document_type,
+                source_id=endpoint.source_id,
+                title=candidate.title,
+                language=candidate.language,
+            )
+
+        if document_type is not DocumentType.ARTICLE:
+            raise DocumentIngestionConflict(
+                "A candidate linked to a legacy article must be "
+                "ingested as an article."
+            )
+
+        article = self._session.get(Article, candidate.article_id)
+
+        if article is None:
+            raise DocumentIngestionConflict(
+                "Candidate references a legacy article that does not "
+                "exist."
+            )
+
+        if article.url != candidate.location:
+            raise DocumentIngestionConflict(
+                "Legacy article location does not match the candidate."
+            )
+
+        if (
+                article.source_id is not None
+                and endpoint.source_id is not None
+                and article.source_id != endpoint.source_id
+        ):
+            raise DocumentIngestionConflict(
+                "Legacy article source does not match the endpoint."
+            )
+
+        linked_document = None
+
+        if article.document_id is not None:
+            linked_document = self._session.get(
+                Document,
+                article.document_id,
+            )
+
+            if linked_document is None:
+                raise DocumentIngestionConflict(
+                    "Legacy article references a document that does "
+                    "not exist."
+                )
+
+            if (
+                    linked_document.identifier_scheme != "uri"
+                    or linked_document.identifier_value != article.url
+            ):
+                raise DocumentIngestionConflict(
+                    "Legacy article document identity does not match "
+                    "the article URI."
+                )
+
+        document = self._document_repository.get_or_create(
+            identifier_scheme="uri",
+            identifier_value=article.url,
+            document_type=DocumentType.ARTICLE,
+            source_id=article.source_id or endpoint.source_id,
+            title=article.title or candidate.title,
+            language=article.language or candidate.language,
+        )
+
+        if linked_document is not None and linked_document.id != document.id:
+            raise DocumentIngestionConflict(
+                "Legacy article is linked to another document."
+            )
+
+        article.document_id = document.id
+        self._session.flush()
+
+        return document
 
     @staticmethod
     def _document_identity(

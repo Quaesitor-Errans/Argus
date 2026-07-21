@@ -678,6 +678,12 @@ class RetrievalAttempt(Base):
 
 class Article(Base):
     __tablename__ = "articles"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id",
+            name="uq_articles_document_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -685,6 +691,15 @@ class Article(Base):
         ForeignKey(
             "sources.id",
             name="fk_articles_source_id_sources",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    document_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "documents.id",
+            name="fk_articles_document_id_documents",
         ),
         nullable=True,
         index=True,
