@@ -218,9 +218,17 @@ The initial `DocumentVersion` links one document to one immutable
 `RawArtifact`. A repeated registration of the same artifact is idempotent;
 different bytes receive increasing version numbers within that document.
 Media type and publication time describe the exact version and are checked
-for conflicts when an existing version is encountered. Creating documents
-from candidates and attaching retrieval attempts to versions belongs to the
-next application-service boundary; the repository layer does not guess
+for conflicts when an existing version is encountered.
+
+The initial `DocumentIngestionService` owns the next application boundary. It
+accepts one successful persisted retrieval and its exact acquisition candidate,
+creates or reuses the logical document, registers the immutable version and
+links the retrieval attempt to that version in one caller-owned transaction.
+External candidate identifiers use a connector-qualified identity scheme;
+candidates without one fall back to their URI. The endpoint supplies the
+document source, while the retrieved response supplies the preferred media
+type. Failed retrievals and inconsistent provenance are rejected before a
+document version is created. The repository layer itself still does not guess
 document identity.
 
 ### Derived artifact

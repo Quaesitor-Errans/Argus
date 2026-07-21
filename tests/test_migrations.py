@@ -413,6 +413,44 @@ class MigrationIntegrationTests(unittest.TestCase):
         self.assertNotIn("document_versions", table_names)
         self.assertIn("acquisition_candidates", table_names)
 
+    def test_document_ingestion_link_downgrades_to_document_schema(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "ingestion_link_test.db"
+            )
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(config, "7f3a1c9d2e4b")
+
+            test_engine = create_engine(database_url)
+
+            try:
+                inspector = inspect(test_engine)
+                table_names = set(inspector.get_table_names())
+                retrieval_columns = {
+                    column["name"]
+                    for column in inspector.get_columns(
+                        "retrieval_attempts"
+                    )
+                }
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn(
+            "document_version_id",
+            retrieval_columns,
+        )
+        self.assertIn("documents", table_names)
+        self.assertIn("document_versions", table_names)
+
 
 if __name__ == "__main__":
     unittest.main()

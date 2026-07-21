@@ -20,3 +20,7 @@ class DocumentIdentityConflict(ValueError):
 
 class DocumentVersionConflict(ValueError):
     """Raised when version metadata conflicts with immutable content."""
+
+
+class DocumentIngestionConflict(ValueError):
+    """Raised when retrieval provenance cannot form a document version."""

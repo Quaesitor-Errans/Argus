@@ -567,6 +567,18 @@ class RetrievalAttempt(Base):
         index=True,
     )
 
+    document_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "document_versions.id",
+            name=(
+                "fk_retrieval_attempts_document_version_id_"
+                "document_versions"
+            ),
+        ),
+        nullable=True,
+        index=True,
+    )
+
     connector_id: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
