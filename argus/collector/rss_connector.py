@@ -23,12 +23,20 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _optional_text(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    return normalized or None
+
+
 def _parse_entry_datetime(
-        entry: Mapping[str, Any],
+    entry: Mapping[str, Any],
 ) -> datetime | None:
     parsed_time = (
-            entry.get("published_parsed")
-            or entry.get("updated_parsed")
+        entry.get("published_parsed")
+        or entry.get("updated_parsed")
     )
 
     if parsed_time is not None:
@@ -38,8 +46,8 @@ def _parse_entry_datetime(
         )
 
     raw_time = (
-            entry.get("published")
-            or entry.get("updated")
+        entry.get("published")
+        or entry.get("updated")
     )
 
     if not raw_time:
@@ -53,8 +61,8 @@ def _parse_entry_datetime(
         return None
 
     if (
-            parsed_datetime.tzinfo is None
-            or parsed_datetime.utcoffset() is None
+        parsed_datetime.tzinfo is None
+        or parsed_datetime.utcoffset() is None
     ):
         return None
 
@@ -65,11 +73,11 @@ class RSSConnector:
     """Discover and retrieve documents exposed through one RSS feed."""
 
     def __init__(
-            self,
-            feed: RSSFeedConfig,
-            *,
-            clock: Callable[[], datetime] = _utc_now,
-            http_client: httpx.Client | None = None,
+        self,
+        feed: RSSFeedConfig,
+        *,
+        clock: Callable[[], datetime] = _utc_now,
+        http_client: httpx.Client | None = None,
     ) -> None:
         self._feed = feed
         self._clock = clock
@@ -84,8 +92,8 @@ class RSSConnector:
         return RSS_CONNECTOR_VERSION
 
     def discover(
-            self,
-            request: DiscoveryRequest,
+        self,
+        request: DiscoveryRequest,
     ) -> list[CandidateRecord]:
         if request.cursor is not None:
             raise ValueError(
@@ -93,8 +101,8 @@ class RSSConnector:
             )
 
         if (
-                request.languages
-                and self._feed.language not in request.languages
+            request.languages
+            and self._feed.language not in request.languages
         ):
             return []
 
@@ -114,24 +122,24 @@ class RSSConnector:
                 continue
 
             if not self._matches_request(
-                    candidate,
-                    request,
+                candidate,
+                request,
             ):
                 continue
 
             candidates.append(candidate)
 
             if (
-                    request.limit is not None
-                    and len(candidates) >= request.limit
+                request.limit is not None
+                and len(candidates) >= request.limit
             ):
                 break
 
         return candidates
 
     def retrieve(
-            self,
-            candidate: CandidateRecord,
+        self,
+        candidate: CandidateRecord,
     ) -> RetrievalResult:
         self._validate_candidate(candidate)
         retrieved_at = self._clock()
@@ -156,8 +164,8 @@ class RSSConnector:
                 outcome=RetrievalOutcome.FAILED,
                 retrieved_at=retrieved_at,
                 error=(
-                        str(error)
-                        or error.__class__.__name__
+                    str(error)
+                    or error.__class__.__name__
                 ),
             )
 
@@ -190,16 +198,16 @@ class RSSConnector:
         )
 
     def _candidate_from_entry(
-            self,
-            *,
-            entry: Mapping[str, Any],
-            discovered_at: datetime,
+        self,
+        *,
+        entry: Mapping[str, Any],
+        discovered_at: datetime,
     ) -> CandidateRecord | None:
         location = entry.get("link")
 
         if (
-                not isinstance(location, str)
-                or not location.strip()
+            not isinstance(location, str)
+            or not location.strip()
         ):
             return None
 
@@ -209,9 +217,10 @@ class RSSConnector:
             location=location,
             discovered_at=discovered_at,
             external_identifier=(
-                    entry.get("id") or location
+                _optional_text(entry.get("id"))
+                or location
             ),
-            title=entry.get("title"),
+            title=_optional_text(entry.get("title")),
             source_identifier=(
                 self._feed.effective_source_identifier
             ),
@@ -221,8 +230,8 @@ class RSSConnector:
 
     @staticmethod
     def _matches_request(
-            candidate: CandidateRecord,
-            request: DiscoveryRequest,
+        candidate: CandidateRecord,
+        request: DiscoveryRequest,
     ) -> bool:
         if request.query is not None:
             title = candidate.title or ""
@@ -232,23 +241,23 @@ class RSSConnector:
 
         if request.published_from is not None:
             if (
-                    candidate.published_at is None
-                    or candidate.published_at < request.published_from
+                candidate.published_at is None
+                or candidate.published_at < request.published_from
             ):
                 return False
 
         if request.published_until is not None:
             if (
-                    candidate.published_at is None
-                    or candidate.published_at > request.published_until
+                candidate.published_at is None
+                or candidate.published_at > request.published_until
             ):
                 return False
 
         return True
 
     def _validate_candidate(
-            self,
-            candidate: CandidateRecord,
+        self,
+        candidate: CandidateRecord,
     ) -> None:
         if candidate.connector_id != self.connector_id:
             raise ValueError(
@@ -256,8 +265,8 @@ class RSSConnector:
             )
 
         if (
-                candidate.connector_version
-                != self.connector_version
+            candidate.connector_version
+            != self.connector_version
         ):
             raise ValueError(
                 "Candidate uses another connector version."
@@ -265,7 +274,7 @@ class RSSConnector:
 
     @staticmethod
     def _outcome_for_status(
-            status_code: int,
+        status_code: int,
     ) -> RetrievalOutcome:
         if 200 <= status_code < 300:
             return RetrievalOutcome.SUCCEEDED

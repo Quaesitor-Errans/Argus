@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from argus.acquisition import (
@@ -14,6 +14,7 @@ from argus.config import RSSFeedConfig
 from argus.database import Base, DatabaseSessionManager
 from argus.endpoints import EndpointType
 from argus.models import (
+    AcquisitionCandidate,
     Article,
     CollectionEndpoint,
     Source,
@@ -107,10 +108,14 @@ class CollectionServiceTests(unittest.TestCase):
             article = session.scalar(
                 select(Article)
             )
+            stored_candidate = session.scalar(
+                select(AcquisitionCandidate)
+            )
 
             self.assertIsNotNone(source)
             self.assertIsNotNone(endpoint)
             self.assertIsNotNone(article)
+            self.assertIsNotNone(stored_candidate)
 
             self.assertEqual(
                 source.identifier,
@@ -171,6 +176,18 @@ class CollectionServiceTests(unittest.TestCase):
                 article.published_at,
                 published_at.replace(tzinfo=None),
             )
+            self.assertEqual(
+                stored_candidate.endpoint_id,
+                endpoint.id,
+            )
+            self.assertEqual(
+                stored_candidate.article_id,
+                article.id,
+            )
+            self.assertEqual(
+                stored_candidate.fingerprint,
+                candidate.fingerprint,
+            )
 
     def test_collection_keeps_endpoint_when_discovery_fails(
         self,
@@ -220,6 +237,113 @@ class CollectionServiceTests(unittest.TestCase):
                 endpoint.identifier,
                 "rss:unavailable-news",
             )
+
+    def test_collection_records_repeated_discovery(
+        self,
+    ) -> None:
+        feed = RSSFeedConfig(
+            name="Example News",
+            url="https://example.com/rss",
+            language="en",
+            country="Example Country",
+            source_identifier="example-news",
+        )
+        timestamp = datetime(
+            2026,
+            7,
+            20,
+            12,
+            0,
+            tzinfo=timezone.utc,
+        )
+        candidate = CandidateRecord(
+            connector_id="rss",
+            connector_version="1.0.0",
+            location="https://example.com/article",
+            discovered_at=timestamp,
+            title="Example article",
+        )
+
+        with (
+            patch(
+                "argus.services.collection_service.RSS_FEEDS",
+                (feed,),
+            ),
+            patch(
+                "argus.services.collection_service.RSSConnector"
+            ) as connector_class,
+            patch(
+                "argus.services.collection_service.session_manager",
+                self.session_manager,
+            ),
+        ):
+            connector_class.return_value.discover.return_value = [
+                candidate
+            ]
+
+            collect_articles()
+            collect_articles()
+
+        with self.session_factory() as session:
+            article_count = session.scalar(
+                select(func.count()).select_from(Article)
+            )
+            candidates = session.scalars(
+                select(AcquisitionCandidate)
+            ).all()
+
+            self.assertEqual(article_count, 1)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(
+                candidates[0].discovery_count,
+                2,
+            )
+
+    def test_collection_keeps_candidate_without_title(
+        self,
+    ) -> None:
+        feed = RSSFeedConfig(
+            name="Metadata Catalog",
+            url="https://example.com/catalog.xml",
+            language="en",
+            country="International",
+            source_identifier="metadata-catalog",
+        )
+        candidate = CandidateRecord(
+            connector_id="rss",
+            connector_version="1.0.0",
+            location="https://example.com/document",
+            discovered_at=datetime.now(timezone.utc),
+        )
+
+        with (
+            patch(
+                "argus.services.collection_service.RSS_FEEDS",
+                (feed,),
+            ),
+            patch(
+                "argus.services.collection_service.RSSConnector"
+            ) as connector_class,
+            patch(
+                "argus.services.collection_service.session_manager",
+                self.session_manager,
+            ),
+        ):
+            connector_class.return_value.discover.return_value = [
+                candidate
+            ]
+
+            collect_articles()
+
+        with self.session_factory() as session:
+            stored_candidate = session.scalar(
+                select(AcquisitionCandidate)
+            )
+            article = session.scalar(select(Article))
+
+            self.assertIsNotNone(stored_candidate)
+            self.assertIsNone(stored_candidate.article_id)
+            self.assertIsNone(article)
 
 
 if __name__ == "__main__":

@@ -58,8 +58,8 @@ class RSSConnectorTests(unittest.TestCase):
         "argus.collector.rss_connector.feedparser.parse"
     )
     def test_discover_normalizes_feed_entry(
-            self,
-            parse_mock: Mock,
+        self,
+        parse_mock: Mock,
     ) -> None:
         parse_mock.return_value.entries = [
             {
@@ -114,8 +114,8 @@ class RSSConnectorTests(unittest.TestCase):
         "argus.collector.rss_connector.feedparser.parse"
     )
     def test_discover_applies_query_and_limit(
-            self,
-            parse_mock: Mock,
+        self,
+        parse_mock: Mock,
     ) -> None:
         parse_mock.return_value.entries = [
             {
@@ -145,10 +145,38 @@ class RSSConnectorTests(unittest.TestCase):
             ["https://example.com/2"],
         )
 
+    @patch(
+        "argus.collector.rss_connector.feedparser.parse"
+    )
+    def test_discover_normalizes_blank_optional_metadata(
+        self,
+        parse_mock: Mock,
+    ) -> None:
+        parse_mock.return_value.entries = [
+            {
+                "id": "   ",
+                "title": "   ",
+                "link": "https://example.com/article",
+            }
+        ]
+
+        candidates = self.connector.discover(
+            DiscoveryRequest(
+                mode=AcquisitionMode.CONTINUOUS,
+            )
+        )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertIsNone(candidates[0].title)
+        self.assertEqual(
+            candidates[0].external_identifier,
+            "https://example.com/article",
+        )
+
     def test_discover_rejects_cursor(self) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "does not support cursors",
+            ValueError,
+            "does not support cursors",
         ):
             self.connector.discover(
                 DiscoveryRequest(
@@ -159,8 +187,8 @@ class RSSConnectorTests(unittest.TestCase):
 
     @patch("argus.collector.rss_connector.httpx.get")
     def test_retrieve_returns_successful_content(
-            self,
-            get_mock: Mock,
+        self,
+        get_mock: Mock,
     ) -> None:
         get_mock.return_value = httpx.Response(
             200,
@@ -187,8 +215,8 @@ class RSSConnectorTests(unittest.TestCase):
 
     @patch("argus.collector.rss_connector.httpx.get")
     def test_retrieve_distinguishes_restricted_content(
-            self,
-            get_mock: Mock,
+        self,
+        get_mock: Mock,
     ) -> None:
         get_mock.return_value = httpx.Response(
             403,
@@ -210,8 +238,8 @@ class RSSConnectorTests(unittest.TestCase):
 
     @patch("argus.collector.rss_connector.httpx.get")
     def test_retrieve_records_transport_failure(
-            self,
-            get_mock: Mock,
+        self,
+        get_mock: Mock,
     ) -> None:
         get_mock.side_effect = httpx.ConnectError(
             "connection failed"

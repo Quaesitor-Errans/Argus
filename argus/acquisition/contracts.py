@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from hashlib import sha256
+from json import dumps
 
 
 class AcquisitionMode(str, Enum):
@@ -21,8 +22,8 @@ class RetrievalOutcome(str, Enum):
 
 
 def _validate_aware_datetime(
-        value: datetime | None,
-        field_name: str,
+    value: datetime | None,
+    field_name: str,
 ) -> None:
     if value is None:
         return
@@ -52,8 +53,8 @@ class DiscoveryRequest:
             )
 
         if any(
-                not language.strip()
-                for language in self.languages
+            not language.strip()
+            for language in self.languages
         ):
             raise ValueError(
                 "languages must not contain blank values."
@@ -84,9 +85,9 @@ class DiscoveryRequest:
         )
 
         if (
-                self.published_from is not None
-                and self.published_until is not None
-                and self.published_from > self.published_until
+            self.published_from is not None
+            and self.published_until is not None
+            and self.published_from > self.published_until
         ):
             raise ValueError(
                 "published_from must not be later than "
@@ -122,6 +123,20 @@ class CandidateRecord:
                     f"{field_name} must not be blank."
                 )
 
+        optional_values = {
+            "external_identifier": self.external_identifier,
+            "title": self.title,
+            "source_identifier": self.source_identifier,
+            "media_type": self.media_type,
+            "language": self.language,
+        }
+
+        for field_name, value in optional_values.items():
+            if value is not None and not value.strip():
+                raise ValueError(
+                    f"{field_name} must not be blank."
+                )
+
         _validate_aware_datetime(
             self.discovered_at,
             "discovered_at",
@@ -130,6 +145,36 @@ class CandidateRecord:
             self.published_at,
             "published_at",
         )
+
+    @property
+    def fingerprint(self) -> str:
+        """Return a deterministic fingerprint of discovery metadata."""
+
+        published_at = (
+            self.published_at.astimezone(
+                timezone.utc
+            ).isoformat()
+            if self.published_at is not None
+            else None
+        )
+        payload = dumps(
+            {
+                "connector_id": self.connector_id,
+                "connector_version": self.connector_version,
+                "external_identifier": self.external_identifier,
+                "language": self.language,
+                "location": self.location,
+                "media_type": self.media_type,
+                "published_at": published_at,
+                "source_identifier": self.source_identifier,
+                "title": self.title,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+
+        return sha256(payload).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,16 +200,16 @@ class RetrievalResult:
         )
 
         if (
-                self.outcome is RetrievalOutcome.SUCCEEDED
-                and self.content is None
+            self.outcome is RetrievalOutcome.SUCCEEDED
+            and self.content is None
         ):
             raise ValueError(
                 "successful retrieval must contain bytes."
             )
 
         if (
-                self.outcome is not RetrievalOutcome.SUCCEEDED
-                and self.content is not None
+            self.outcome is not RetrievalOutcome.SUCCEEDED
+            and self.content is not None
         ):
             raise ValueError(
                 "unsuccessful retrieval must not contain bytes."
@@ -176,16 +221,16 @@ class RetrievalResult:
             )
 
         if (
-                self.outcome is RetrievalOutcome.FAILED
-                and self.error is None
+            self.outcome is RetrievalOutcome.FAILED
+            and self.error is None
         ):
             raise ValueError(
                 "failed retrieval must include an error."
             )
 
         if any(
-                not warning.strip()
-                for warning in self.warnings
+            not warning.strip()
+            for warning in self.warnings
         ):
             raise ValueError(
                 "warnings must not contain blank values."

@@ -1,3 +1,5 @@
+"""SQLAlchemy models including persistent acquisition candidates."""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -235,6 +237,138 @@ class RawArtifact(Base):
     )
 
 
+class AcquisitionCandidate(Base):
+    __tablename__ = "acquisition_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "discovery_count >= 1",
+            name=(
+                "ck_acquisition_candidates_discovery_count_"
+                "positive"
+            ),
+        ),
+        UniqueConstraint(
+            "endpoint_id",
+            "fingerprint",
+            name="uq_acquisition_candidate_endpoint_fingerprint",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+    )
+
+    endpoint_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "collection_endpoints.id",
+            name=(
+                "fk_acquisition_candidates_endpoint_id_"
+                "collection_endpoints"
+            ),
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    article_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "articles.id",
+            name=(
+                "fk_acquisition_candidates_article_id_articles"
+            ),
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    connector_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+    )
+
+    connector_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    external_identifier: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+
+    location: Mapped[str] = mapped_column(
+        String(2048),
+        nullable=False,
+    )
+
+    title: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    source_identifier: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+
+    media_type: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    language: Mapped[str | None] = mapped_column(
+        String(35),
+        nullable=True,
+        index=True,
+    )
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
+    first_discovered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    last_discovered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    discovery_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=utc_now,
+        onupdate=utc_now,
+        nullable=False,
+    )
+
+
 class RetrievalAttempt(Base):
     __tablename__ = "retrieval_attempts"
 
@@ -270,6 +404,18 @@ class RetrievalAttempt(Base):
             name=(
                 "fk_retrieval_attempts_raw_artifact_id_"
                 "raw_artifacts"
+            ),
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    candidate_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "acquisition_candidates.id",
+            name=(
+                "fk_retrieval_attempts_candidate_id_"
+                "acquisition_candidates"
             ),
         ),
         nullable=True,

@@ -1,6 +1,6 @@
 import unittest
 from dataclasses import FrozenInstanceError
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from argus.acquisition import (
     AcquisitionMode,
@@ -29,7 +29,7 @@ class AcquisitionContractTests(unittest.TestCase):
         )
 
     def test_discovery_request_accepts_normalized_filters(
-            self,
+        self,
     ) -> None:
         request = DiscoveryRequest(
             mode=AcquisitionMode.INVESTIGATION,
@@ -47,11 +47,11 @@ class AcquisitionContractTests(unittest.TestCase):
         self.assertEqual(request.limit, 50)
 
     def test_discovery_request_rejects_invalid_range(
-            self,
+        self,
     ) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "published_from",
+            ValueError,
+            "published_from",
         ):
             DiscoveryRequest(
                 mode=AcquisitionMode.CONTINUOUS,
@@ -70,11 +70,11 @@ class AcquisitionContractTests(unittest.TestCase):
             )
 
     def test_candidate_requires_aware_discovery_time(
-            self,
+        self,
     ) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "discovered_at",
+            ValueError,
+            "discovered_at",
         ):
             CandidateRecord(
                 connector_id="test-rss",
@@ -91,8 +91,58 @@ class AcquisitionContractTests(unittest.TestCase):
                 "Changed title",
             )
 
+    def test_candidate_fingerprint_excludes_discovery_time(
+        self,
+    ) -> None:
+        rediscovered = CandidateRecord(
+            connector_id=self.candidate.connector_id,
+            connector_version=self.candidate.connector_version,
+            location=self.candidate.location,
+            discovered_at=self.now + timedelta(hours=1),
+            external_identifier=(
+                self.candidate.external_identifier
+            ),
+            title=self.candidate.title,
+            source_identifier=(
+                self.candidate.source_identifier
+            ),
+            media_type=self.candidate.media_type,
+            language=self.candidate.language,
+            published_at=self.candidate.published_at,
+        )
+
+        self.assertEqual(
+            rediscovered.fingerprint,
+            self.candidate.fingerprint,
+        )
+
+    def test_candidate_fingerprint_changes_with_metadata(
+        self,
+    ) -> None:
+        changed = CandidateRecord(
+            connector_id=self.candidate.connector_id,
+            connector_version=self.candidate.connector_version,
+            location=self.candidate.location,
+            discovered_at=self.now,
+            external_identifier=(
+                self.candidate.external_identifier
+            ),
+            title="Corrected headline",
+            source_identifier=(
+                self.candidate.source_identifier
+            ),
+            media_type=self.candidate.media_type,
+            language=self.candidate.language,
+            published_at=self.candidate.published_at,
+        )
+
+        self.assertNotEqual(
+            changed.fingerprint,
+            self.candidate.fingerprint,
+        )
+
     def test_successful_retrieval_computes_content_hash(
-            self,
+        self,
     ) -> None:
         result = RetrievalResult(
             candidate=self.candidate,
@@ -113,11 +163,11 @@ class AcquisitionContractTests(unittest.TestCase):
         )
 
     def test_successful_retrieval_requires_content(
-            self,
+        self,
     ) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "must contain bytes",
+            ValueError,
+            "must contain bytes",
         ):
             RetrievalResult(
                 candidate=self.candidate,
@@ -126,11 +176,11 @@ class AcquisitionContractTests(unittest.TestCase):
             )
 
     def test_failed_retrieval_rejects_content(
-            self,
+        self,
     ) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "must not contain bytes",
+            ValueError,
+            "must not contain bytes",
         ):
             RetrievalResult(
                 candidate=self.candidate,
@@ -141,11 +191,11 @@ class AcquisitionContractTests(unittest.TestCase):
             )
 
     def test_failed_retrieval_requires_error(
-            self,
+        self,
     ) -> None:
         with self.assertRaisesRegex(
-                ValueError,
-                "must include an error",
+            ValueError,
+            "must include an error",
         ):
             RetrievalResult(
                 candidate=self.candidate,

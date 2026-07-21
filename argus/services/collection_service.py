@@ -12,6 +12,9 @@ from argus.endpoints import EndpointType
 from argus.logging.logger import get_logger
 from argus.models import Article
 from argus.storage.article_repository import ArticleRepository
+from argus.storage.candidate_repository import (
+    AcquisitionCandidateRepository,
+)
 from argus.storage.endpoint_repository import (
     CollectionEndpointRepository,
 )
@@ -34,6 +37,9 @@ def collect_articles() -> None:
         endpoint_repository = CollectionEndpointRepository(
             session
         )
+        candidate_repository = AcquisitionCandidateRepository(
+            session
+        )
 
         for feed in RSS_FEEDS:
             logger.info(
@@ -51,7 +57,7 @@ def collect_articles() -> None:
                     primary_jurisdiction=feed.country,
                     default_language=feed.language,
                 )
-                endpoint_repository.get_or_create(
+                endpoint = endpoint_repository.get_or_create(
                     identifier=(
                         feed.effective_endpoint_identifier
                     ),
@@ -83,31 +89,42 @@ def collect_articles() -> None:
             for candidate in candidates:
                 title = candidate.title
                 url = candidate.location
+                article = None
 
-                if not title or not url:
+                if not title:
                     logger.warning(
-                        "Skipping invalid RSS entry from %s",
+                        "RSS candidate has no title: %s",
                         feed.name,
                     )
-                    continue
+                else:
+                    article = repository.get_by_url(url)
 
-                if repository.get_by_url(url) is not None:
-                    continue
+                    if article is None:
+                        article = Article(
+                            url=url,
+                            title=title,
+                            source_id=source.id,
+                            source=feed.name,
+                            language=candidate.language,
+                            published_at=candidate.published_at,
+                            content=None,
+                        )
 
-                article = Article(
-                    url=url,
-                    title=title,
-                    source_id=source.id,
-                    source=feed.name,
-                    language=candidate.language,
-                    published_at=candidate.published_at,
-                    content=None,
+                        repository.save(article)
+
+                        new_articles_count += 1
+                        collected_from_feed += 1
+
+                candidate_repository.get_or_create(
+                    endpoint=endpoint,
+                    candidate=candidate,
+                    article_id=(
+                        article.id
+                        if article is not None
+                        else None
+                    ),
                 )
-
-                repository.save(article)
-
-                new_articles_count += 1
-                collected_from_feed += 1
+                session.commit()
 
             logger.info(
                 "Feed collected: %s; new articles: %s",

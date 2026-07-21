@@ -13,6 +13,7 @@ from argus.storage.migrations import upgrade_database
 
 
 EXPECTED_TABLES = {
+    "acquisition_candidates",
     "alembic_version",
     "analysis_evidence",
     "articles",
@@ -339,6 +340,55 @@ class MigrationIntegrationTests(unittest.TestCase):
         self.assertIn("retrieval_attempts", table_names)
         self.assertNotIn(
             "raw_artifact_id",
+            retrieval_columns,
+        )
+
+    def test_candidate_migration_downgrades_to_artifact_schema(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = (
+                Path(temporary_directory) / "candidate_downgrade_test.db"
+            )
+            database_url = (
+                f"sqlite:///{database_path.as_posix()}"
+            )
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(
+                    config,
+                    "cb3e06323fb8",
+                )
+
+            test_engine = create_engine(database_url)
+
+            try:
+                inspector = inspect(test_engine)
+                table_names = set(
+                    inspector.get_table_names()
+                )
+                retrieval_columns = {
+                    column["name"]
+                    for column in inspector.get_columns(
+                        "retrieval_attempts"
+                    )
+                }
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn(
+            "acquisition_candidates",
+            table_names,
+        )
+        self.assertIn("retrieval_attempts", table_names)
+        self.assertIn("raw_artifacts", table_names)
+        self.assertNotIn(
+            "candidate_id",
             retrieval_columns,
         )
 
