@@ -21,6 +21,7 @@ EXPECTED_TABLES = {
     "document_versions",
     "documents",
     "discourse_analysis_results",
+    "derived_artifacts",
     "processing_states",
     "raw_artifacts",
     "retrieval_attempts",
@@ -565,6 +566,32 @@ class MigrationIntegrationTests(unittest.TestCase):
                 test_engine.dispose()
 
         self.assertNotIn("document_id", article_columns)
+
+    def test_derived_artifact_migration_downgrades_to_bridge_schema(
+            self,
+    ) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            database_path = Path(temporary_directory) / "derived_down.db"
+            database_url = f"sqlite:///{database_path.as_posix()}"
+            config = Config(str(ALEMBIC_CONFIG_PATH))
+
+            with patch.dict(
+                os.environ,
+                {"ARGUS_ALEMBIC_DATABASE_URL": database_url},
+            ):
+                command.upgrade(config, "head")
+                command.downgrade(config, "d4e7a1b92f30")
+
+            test_engine = create_engine(database_url)
+            try:
+                table_names = set(
+                    inspect(test_engine).get_table_names()
+                )
+            finally:
+                test_engine.dispose()
+
+        self.assertNotIn("derived_artifacts", table_names)
+        self.assertIn("document_versions", table_names)
 
 
 if __name__ == "__main__":

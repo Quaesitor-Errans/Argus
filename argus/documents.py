@@ -14,6 +14,19 @@ class DocumentType(str, Enum):
     OTHER = "other"
 
 
+class DerivedArtifactType(str, Enum):
+    """Kind of reproducible output derived from a document version."""
+
+    EXTRACTED_TEXT = "extracted_text"
+    OCR_TEXT = "ocr_text"
+    TRANSCRIPT = "transcript"
+    TRANSLATION = "translation"
+    NORMALIZED_METADATA = "normalized_metadata"
+    PARSED_TABLE = "parsed_table"
+    CONVERTED_DOCUMENT = "converted_document"
+    OTHER = "other"
+
+
 class DocumentIdentityConflict(ValueError):
     """Raised when a stable document identity conflicts with stored data."""
 
@@ -24,3 +37,7 @@ class DocumentVersionConflict(ValueError):
 
 class DocumentIngestionConflict(ValueError):
     """Raised when retrieval provenance cannot form a document version."""
+
+
+class DerivedArtifactConflict(ValueError):
+    """Raised when an immutable derived artifact conflicts with stored data."""

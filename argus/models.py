@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from argus.acquisition.contracts import RetrievalOutcome
 from argus.database import Base
-from argus.documents import DocumentType
+from argus.documents import DerivedArtifactType, DocumentType
 from argus.endpoints import EndpointType
 
 from argus.processing import (
@@ -379,6 +379,72 @@ class DocumentVersion(Base):
         DateTime,
         default=utc_now,
         nullable=False,
+    )
+
+
+class DerivedArtifact(Base):
+    __tablename__ = "derived_artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_version_id",
+            "artifact_type",
+            "method",
+            "method_version",
+            "schema_version",
+            "content_hash",
+            name="uq_derived_artifact_reproducible_output",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    document_version_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "document_versions.id",
+            name=(
+                "fk_derived_artifacts_document_version_id_"
+                "document_versions"
+            ),
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    artifact_type: Mapped[DerivedArtifactType] = mapped_column(
+        SQLAlchemyEnum(
+            DerivedArtifactType,
+            name="derived_artifact_type",
+            native_enum=False,
+            values_callable=lambda enum_type: [
+                member.value for member in enum_type
+            ],
+            validate_strings=True,
+            length=50,
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    method: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )
+    method_version: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )
+    schema_version: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )
+    content_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
+    payload: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False
+    )
+    quality_limitations: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now, nullable=False
     )
 
 

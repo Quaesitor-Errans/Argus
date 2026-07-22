@@ -256,6 +256,16 @@ Examples include:
 Every derived artifact must identify its input, method, method version,
 creation time, and quality limitations.
 
+The initial `DerivedArtifact` model records one immutable JSON result against
+the exact `DocumentVersion` used as input. Artifact type, method, method
+version and result-schema version make the transformation reproducible; a
+SHA-256 digest of canonical JSON makes repeated registration idempotent.
+Quality limitations are stored with the result and conflicting limitations
+are rejected rather than silently replacing provenance. Transaction ownership
+remains with the caller. This storage layer does not yet run extraction or
+replace the legacy parsing pipeline; the first extraction service will be a
+separate application-layer step.
+
 ## Connector boundary
 
 A connector is responsible for protocol-specific discovery and retrieval.
